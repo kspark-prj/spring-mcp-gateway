@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Proxy Gateway — 관리자 대시보드</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #38bdf8;
+            --accent-hover: #0284c7;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --success-color: #4ade80;
+            --danger-color: #f87171;
+            --warning-color: #fbbf24;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; }
+        
+        #app-container { display: none; } /* Hidden until authenticated */
+
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); margin-bottom: 25px; }
+        h1 { font-size: 1.5rem; color: var(--accent-color); }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+
+        .btn { background-color: var(--accent-color); color: #000; font-weight: 600; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .btn:hover { background-color: var(--accent-hover); color: #fff; }
+        .btn-danger { background-color: var(--danger-color); color: #000; }
+        .btn-secondary { background-color: var(--border-color); color: var(--text-main); }
+
+        .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: var(--card-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .stat-card h3 { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+        .stat-card p { font-size: 1.8rem; font-weight: bold; color: var(--accent-color); }
+
+        .section-title { font-size: 1.2rem; margin-bottom: 15px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
+
+        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 25px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px; }
+        th, td { padding: 12px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { color: var(--text-muted); font-weight: 600; background: #172033; }
+        tr:hover { background: #26334d; }
+
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+        .badge-healthy { background: rgba(74, 222, 128, 0.2); color: var(--success-color); }
+        .badge-down { background: rgba(248, 113, 113, 0.2); color: var(--danger-color); }
+        .badge-http { background: rgba(56, 189, 248, 0.2); color: var(--accent-color); }
+        .badge-stdio { background: rgba(251, 191, 36, 0.2); color: var(--warning-color); }
+
+        .toggle-container { display: flex; align-items: center; gap: 10px; }
+        .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-color); transition: .3s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-color); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: var(--card-bg); padding: 25px; border-radius: 8px; border: 1px solid var(--border-color); width: 400px; max-width: 90%; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 0.85rem; color: var(--text-muted); }
+        .form-group input, .form-group select { width: 100%; padding: 8px 12px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 4px; color: #fff; }
+
+        /* Fullscreen Login Overlay */
+        #login-overlay { display: flex; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: var(--bg-color); justify-content: center; align-items: center; z-index: 2000; }
+        .login-card { background: var(--card-bg); padding: 35px; border-radius: 10px; border: 1px solid var(--border-color); width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .login-card h2 { text-align: center; margin-bottom: 25px; color: var(--accent-color); font-size: 1.4rem; }
+        .error-alert { color: var(--danger-color); font-size: 0.85rem; margin-bottom: 15px; text-align: center; display: none; }
+
+        canvas { width: 100%; height: 180px; }
+    </style>
+</head>
+<body>
+
+    <!-- Fullscreen Login View -->
+    <div id="login-overlay">
+        <div class="login-card">
+            <h2>⚡ MCP 게이트웨이 로그인</h2>
+            <div id="login-error" class="error-alert"></div>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-username">관리자 아이디</label>
+                    <input type="text" id="login-username" required placeholder="admin">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">비밀번호</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 10px; padding: 10px;">로그인</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Container -->
+    <div id="app-container">
+        <header>
+            <h1>⚡ 하이브리드 MCP 게이트웨이 통합 대시보드</h1>
+            <div class="user-info">
+                <span id="admin-user-label" style="color: var(--success-color); font-weight: 600;">admin</span>
+                <button class="btn btn-secondary" onclick="handleLogout()">로그아웃</button>
+            </div>
+        </header>
+
+        <!-- Metrics Cards -->
+        <div class="grid-stats">
+            <div class="stat-card">
+                <h3>전체 게이트웨이 요청 수</h3>
+                <p id="stat-total">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>요청 성공률</h3>
+                <p id="stat-success">100%</p>
+            </div>
+            <div class="stat-card">
+                <h3>평균 응답 지연 시간</h3>
+                <p id="stat-latency">0 ms</p>
+            </div>
+            <div class="stat-card">
+                <h3>활성 업스트림 서버</h3>
+                <p id="stat-servers">0</p>
+            </div>
+        </div>
+
+        <!-- System Controls & PII Toggle -->
+        <div class="card">
+            <div class="section-title">
+                <span>전역 시스템 보안 설정</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>동적 PII 마스킹 토글</strong>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">감사 로그 내 이메일 및 전화번호를 마스킹합니다. 인증 비밀값은 설정과 무관하게 항상 강제 마스킹됩니다.</p>
+                </div>
+                <div class="toggle-container">
+                    <label class="switch">
+                        <input type="checkbox" id="pii-toggle" onchange="togglePii(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Managed MCP Servers Section -->
+        <div class="card">
+            <div class="section-title">
+                <span>업스트림 MCP 서버 관리</span>
+                <button class="btn" onclick="openServerModal()">+ 서버 등록</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>서버 이름</th>
+                        <th>전송 프로토콜</th>
+                        <th>엔드포인트 / 실행 명령</th>
+                        <th>상태</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody id="servers-table-body">
+                    <!-- Dynamic insertion -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- API Key Management Section -->
+        <div class="card">
+            <div class="section-title">
+                <span>클라이언트 API Key 관리</span>
+                <button class="btn" onclick="openKeyModal()">+ API Key 발급</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Key 이름</th>
+                        <th>권한 / 역할</th>
+                        <th>분당 요청 제한</th>
+                        <th>생성 일시</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody id="keys-table-body">
+                    <!-- Dynamic insertion -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Audit Logs Section -->
+        <div class="card">
+            <div class="section-title">
+                <span>최근 게이트웨이 감사 로그</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>시각</th>
+                        <th>메서드</th>
+                        <th>도구 이름</th>
+                        <th>상태 코드</th>
+                        <th>지연 시간</th>
+                        <th>PII 마스킹</th>
+                    </tr>
+                </thead>
+                <tbody id="audit-table-body">
+                    <!-- Dynamic insertion -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Register/Edit Server Modal -->
+    <div id="serverModal" class="modal">
+        <div class="modal-content" style="width: 500px;">
+            <h3 id="srv-modal-title" style="margin-bottom: 15px;">업스트림 서버 등록</h3>
+            <input type="hidden" id="srv-id">
+            <div class="form-group">
+                <label>서버 이름 (네임스페이스 식별자)</label>
+                <input type="text" id="srv-name" placeholder="예: github">
+            </div>
+            <div class="form-group">
+                <label>전송 프로토콜 유형</label>
+                <select id="srv-type" onchange="toggleTransportFields()">
+                    <option value="HTTP">Streamable HTTP</option>
+                    <option value="STDIO">STDIO 프로세스</option>
+                </select>
+            </div>
+            <div class="form-group" id="grp-http">
+                <label>HTTP 엔드포인트 URL</label>
+                <input type="text" id="srv-url" placeholder="https://api.example.com/mcp">
+            </div>
+            <div class="form-group" id="grp-stdio" style="display:none;">
+                <label>STDIO 실행 명령어</label>
+                <input type="text" id="srv-cmd" placeholder="npx -y @modelcontextprotocol/server-filesystem /tmp">
+            </div>
+
+            <!-- 서킷브레이커 설정 동적 관리 필드 -->
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                <h4 style="font-size: 0.95rem; color: var(--accent-color); margin-bottom: 10px;">⚡ 서킷브레이커 동적 설정</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label>실패율 임계값 (%)</label>
+                        <input type="number" step="0.1" id="srv-failure-rate" value="50.0">
+                    </div>
+                    <div class="form-group">
+                        <label>슬라이딩 윈도우 크기</label>
+                        <input type="number" id="srv-sliding-window" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label>최소 호출 수</label>
+                        <input type="number" id="srv-min-calls" value="5">
+                    </div>
+                    <div class="form-group">
+                        <label>열림 상태 대기 시간 (초)</label>
+                        <input type="number" id="srv-wait-duration" value="10">
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeServerModal()">취소</button>
+                <button class="btn" onclick="saveServer()">서버 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generate API Key Modal -->
+    <div id="keyModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px;">API Key 발급</h3>
+            <div class="form-group">
+                <label>Key 레이블 명칭</label>
+                <input type="text" id="key-name" placeholder="예: LLM 에이전트 운영 키">
+            </div>
+            <div class="form-group">
+                <label>권한 유형</label>
+                <select id="key-master">
+                    <option value="false">일반 Key (도구 단위 제한)</option>
+                    <option value="true">마스터 Key (무제한 권한)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>분당 요청 제한 (requests / minute)</label>
+                <input type="number" id="key-ratelimit" value="60">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeKeyModal()">취소</button>
+                <button class="btn" onclick="saveApiKey()">Key 발급</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Key Permission Management Modal -->
+    <div id="permissionModal" class="modal">
+        <div class="modal-content" style="width: 550px;">
+            <h3 style="margin-bottom: 10px;">🔑 API Key 도구 권한 관리</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;" id="perm-key-info"></p>
+            <input type="hidden" id="perm-key-id">
+
+            <div style="background: #172033; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label>대상 업스트림 서버</label>
+                    <select id="perm-server-select"></select>
+                </div>
+                <div class="form-group">
+                    <label>허용 도구 목록 (쉼표 구분 또는 * 전체)</label>
+                    <input type="text" id="perm-tools-input" placeholder="예: * 또는 search_repo, create_issue">
+                </div>
+                <button class="btn" style="width: 100%; padding: 8px;" onclick="savePermission()">+ 권한 저장/업데이트</button>
+            </div>
+
+            <h4 style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 8px;">현재 설정된 서버별 권한</h4>
+            <table style="font-size: 0.85rem;">
+                <thead>
+                    <tr>
+                        <th>서버</th>
+                        <th>허용 도구 목록</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody id="perm-table-body">
+                    <!-- Dynamic insertion -->
+                </tbody>
+            </table>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closePermissionModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let refreshTimer = null;
+
+        function getCsrfToken() {
+            const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+            return match ? match[1] : '';
+        }
+
+        function getAuthHeaders(extraHeaders = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...extraHeaders
+            };
+            const csrf = getCsrfToken();
+            if (csrf) {
+                headers['X-XSRF-TOKEN'] = csrf;
+            }
+            return headers;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            checkSession();
+        });
+
+        async function checkSession() {
+            try {
+                const res = await fetch('/api/admin/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.authenticated) {
+                        document.getElementById('login-overlay').style.display = 'none';
+                        document.getElementById('app-container').style.display = 'block';
+                        document.getElementById('admin-user-label').innerText = data.username || 'admin';
+                        startDashboard();
+                        return;
+                    }
+                }
+            } catch (e) {}
+            
+            // Unauthenticated
+            document.getElementById('login-overlay').style.display = 'flex';
+            document.getElementById('app-container').style.display = 'none';
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+                refreshTimer = null;
+            }
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            const usernameInput = document.getElementById('login-username').value;
+            const passwordInput = document.getElementById('login-password').value;
+            const errorDiv = document.getElementById('login-error');
+
+            errorDiv.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ username: usernameInput, password: passwordInput })
+                });
+
+                if (res.ok) {
+                    checkSession();
+                } else {
+                    const data = await res.json();
+                    errorDiv.innerText = data.error || '로그인에 실패했습니다.';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (e) {
+                errorDiv.innerText = '서버 통신 오류가 발생했습니다.';
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch('/api/admin/logout', {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+            } catch (e) {}
+            checkSession();
+        }
+
+        function startDashboard() {
+            refreshAll();
+            if (!refreshTimer) {
+                refreshTimer = setInterval(refreshAll, 5000);
+            }
+        }
+
+        function refreshAll() {
+            loadStats();
+            loadSettings();
+            loadServers();
+            loadApiKeys();
+            loadAuditLogs();
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/admin/stats');
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('stat-total').innerText = data.totalRequests || 0;
+                    document.getElementById('stat-success').innerText = (data.successRate || 100) + '%';
+                    document.getElementById('stat-latency').innerText = (data.avgLatencyMs || 0) + ' ms';
+                } else if (res.status === 401) {
+                    checkSession();
+                }
+            } catch (e) {}
+        }
+
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/admin/settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('pii-toggle').checked = data.piiMaskingEnabled;
+                }
+            } catch (e) {}
+        }
+
+        async function togglePii(enabled) {
+            await fetch('/api/admin/settings/pii-toggle', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ enabled })
+            });
+        }
+
+        let serversMap = {};
+        let allServersList = [];
+
+        async function loadServers() {
+            try {
+                const res = await fetch('/api/admin/servers');
+                if (res.ok) {
+                    const servers = await res.json();
+                    allServersList = servers;
+                    document.getElementById('stat-servers').innerText = servers.length;
+                    serversMap = {};
+                    const tbody = document.getElementById('servers-table-body');
+                    tbody.innerHTML = servers.map(s => {
+                        serversMap[s.id] = s;
+                        return `
+                        <tr>
+                            <td><strong>${escapeHtml(s.name)}</strong></td>
+                            <td><span class="badge badge-${s.transportType.toLowerCase()}">${s.transportType}</span></td>
+                            <td>${escapeHtml(s.transportType === 'HTTP' ? s.endpointUrl : s.commandLine)}</td>
+                            <td><span class="badge badge-${s.healthStatus.toLowerCase()}">${s.healthStatus}</span></td>
+                            <td>
+                                <button class="btn btn-secondary" style="margin-right: 5px; padding: 4px 8px; font-size: 0.8rem;" onclick="openServerModal('${s.id}')">수정</button>
+                                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;" onclick="deleteServer('${s.id}')">삭제</button>
+                            </td>
+                        </tr>
+                    `}).join('');
+                }
+            } catch (e) {}
+        }
+
+        let apiKeysMap = {};
+
+        async function loadApiKeys() {
+            try {
+                const res = await fetch('/api/admin/api-keys');
+                if (res.ok) {
+                    const keys = await res.json();
+                    apiKeysMap = {};
+                    const tbody = document.getElementById('keys-table-body');
+                    tbody.innerHTML = keys.map(k => {
+                        apiKeysMap[k.id] = k;
+                        return `
+                        <tr>
+                            <td><strong>${escapeHtml(k.keyName)}</strong></td>
+                            <td>${k.masterKey ? '<span class="badge badge-stdio">마스터 Key</span>' : '<span class="badge badge-http">일반 Key</span>'}</td>
+                            <td>${k.rateLimitPerMinute} 회/분</td>
+                            <td>${new Date(k.createdAt).toLocaleString()}</td>
+                            <td>
+                                <button class="btn btn-secondary" style="margin-right: 5px; padding: 4px 8px; font-size: 0.8rem;" onclick="openPermissionModal('${k.id}')">권한 관리</button>
+                                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;" onclick="deleteApiKey('${k.id}')">폐기</button>
+                            </td>
+                        </tr>
+                    `}).join('');
+                }
+            } catch (e) {}
+        }
+
+        async function loadAuditLogs() {
+            try {
+                const res = await fetch('/api/admin/audit-logs');
+                if (res.ok) {
+                    const logs = await res.json();
+                    const tbody = document.getElementById('audit-table-body');
+                    tbody.innerHTML = logs.map(l => `
+                        <tr>
+                            <td>${new Date(l.createdAt).toLocaleTimeString()}</td>
+                            <td>${l.httpMethod}</td>
+                            <td>${escapeHtml(l.toolName || 'N/A')}</td>
+                            <td><span class="badge badge-${l.responseStatus < 400 ? 'healthy' : 'down'}">${l.responseStatus}</span></td>
+                            <td>${l.executionTimeMs} ms</td>
+                            <td>${l.piiMasked ? '적용됨' : '미적용'}</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {}
+        }
+
+        function openServerModal(serverId = null) {
+            if (serverId && serversMap[serverId]) {
+                const s = serversMap[serverId];
+                document.getElementById('srv-modal-title').innerText = '업스트림 서버 수정';
+                document.getElementById('srv-id').value = s.id;
+                document.getElementById('srv-name').value = s.name;
+                document.getElementById('srv-type').value = s.transportType;
+                document.getElementById('srv-url').value = s.endpointUrl || '';
+                document.getElementById('srv-cmd').value = s.commandLine || '';
+                document.getElementById('srv-failure-rate').value = s.failureRateThreshold !== undefined ? s.failureRateThreshold : 50.0;
+                document.getElementById('srv-sliding-window').value = s.slidingWindowSize !== undefined ? s.slidingWindowSize : 10;
+                document.getElementById('srv-min-calls').value = s.minimumNumberOfCalls !== undefined ? s.minimumNumberOfCalls : 5;
+                document.getElementById('srv-wait-duration').value = s.waitDurationInOpenState !== undefined ? s.waitDurationInOpenState : 10;
+            } else {
+                document.getElementById('srv-modal-title').innerText = '업스트림 서버 등록';
+                document.getElementById('srv-id').value = '';
+                document.getElementById('srv-name').value = '';
+                document.getElementById('srv-type').value = 'HTTP';
+                document.getElementById('srv-url').value = '';
+                document.getElementById('srv-cmd').value = '';
+                document.getElementById('srv-failure-rate').value = 50.0;
+                document.getElementById('srv-sliding-window').value = 10;
+                document.getElementById('srv-min-calls').value = 5;
+                document.getElementById('srv-wait-duration').value = 10;
+            }
+            toggleTransportFields();
+            document.getElementById('serverModal').style.display = 'flex';
+        }
+
+        function closeServerModal() { document.getElementById('serverModal').style.display = 'none'; }
+        function openKeyModal() { document.getElementById('keyModal').style.display = 'flex'; }
+        function closeKeyModal() { document.getElementById('keyModal').style.display = 'none'; }
+
+        async function openPermissionModal(keyId) {
+            const key = apiKeysMap[keyId];
+            document.getElementById('perm-key-id').value = keyId;
+            if (key) {
+                if (key.masterKey) {
+                    document.getElementById('perm-key-info').innerHTML = `<strong>API Key:</strong> ${escapeHtml(key.keyName)} <span class="badge badge-stdio">마스터 Key (모든 도구 무제한 접근 권한 부여됨)</span>`;
+                } else {
+                    document.getElementById('perm-key-info').innerHTML = `<strong>API Key:</strong> ${escapeHtml(key.keyName)} <span class="badge badge-http">일반 Key</span>`;
+                }
+            } else {
+                document.getElementById('perm-key-info').innerText = `API Key: ${keyId}`;
+            }
+            
+            const select = document.getElementById('perm-server-select');
+            select.innerHTML = allServersList.map(s => `<option value="${s.id}">${escapeHtml(s.name)} (${s.transportType})</option>`).join('');
+            document.getElementById('perm-tools-input').value = '*';
+
+            loadPermissionsTable(keyId);
+            document.getElementById('permissionModal').style.display = 'flex';
+        }
+
+        function closePermissionModal() {
+            document.getElementById('permissionModal').style.display = 'none';
+        }
+
+        async function loadPermissionsTable(keyId) {
+            try {
+                const res = await fetch(`/api/admin/api-keys/${keyId}/permissions`);
+                if (res.ok) {
+                    const perms = await res.json();
+                    const tbody = document.getElementById('perm-table-body');
+                    if (perms.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">등록된 도구 권한이 없습니다. (기본 거부)</td></tr>`;
+                        return;
+                    }
+                    tbody.innerHTML = perms.map(p => {
+                        const srv = allServersList.find(s => s.id === p.serverId);
+                        const srvName = srv ? srv.name : p.serverId;
+                        return `
+                        <tr>
+                            <td><strong>${escapeHtml(srvName)}</strong></td>
+                            <td><code>${escapeHtml(p.allowedToolsJson)}</code></td>
+                            <td><button class="btn btn-danger" style="padding: 2px 6px; font-size: 0.75rem;" onclick="deletePermission('${keyId}', '${p.serverId}')">삭제</button></td>
+                        </tr>
+                    `}).join('');
+                }
+            } catch (e) {}
+        }
+
+        async function savePermission() {
+            const keyId = document.getElementById('perm-key-id').value;
+            const serverId = document.getElementById('perm-server-select').value;
+            const toolsStr = document.getElementById('perm-tools-input').value;
+
+            if (!serverId) {
+                alert("선택된 서버가 없습니다.");
+                return;
+            }
+
+            const res = await fetch(`/api/admin/api-keys/${keyId}/permissions`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    serverId: serverId,
+                    allowedTools: toolsStr
+                })
+            });
+
+            if (res.ok) {
+                loadPermissionsTable(keyId);
+            } else {
+                alert("권한 저장에 실패했습니다.");
+            }
+        }
+
+        async function deletePermission(keyId, serverId) {
+            if (confirm("이 서버에 대한 도구 권한을 삭제하시겠습니까?")) {
+                const res = await fetch(`/api/admin/api-keys/${keyId}/permissions/${serverId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    loadPermissionsTable(keyId);
+                }
+            }
+        }
+
+        function toggleTransportFields() {
+            const type = document.getElementById('srv-type').value;
+            document.getElementById('grp-http').style.display = type === 'HTTP' ? 'block' : 'none';
+            document.getElementById('grp-stdio').style.display = type === 'STDIO' ? 'block' : 'none';
+        }
+
+        async function saveServer() {
+            const id = document.getElementById('srv-id').value;
+            const body = {
+                name: document.getElementById('srv-name').value,
+                transportType: document.getElementById('srv-type').value,
+                endpointUrl: document.getElementById('srv-url').value,
+                commandLine: document.getElementById('srv-cmd').value,
+                failureRateThreshold: parseFloat(document.getElementById('srv-failure-rate').value),
+                slidingWindowSize: parseInt(document.getElementById('srv-sliding-window').value),
+                minimumNumberOfCalls: parseInt(document.getElementById('srv-min-calls').value),
+                waitDurationInOpenState: parseInt(document.getElementById('srv-wait-duration').value),
+                enabled: true
+            };
+            const url = id ? `/api/admin/servers/${id}` : '/api/admin/servers';
+            const method = id ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method: method,
+                headers: getAuthHeaders(),
+                body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                closeServerModal();
+                loadServers();
+            } else {
+                alert(await res.text());
+            }
+        }
+
+        async function saveApiKey() {
+            const body = {
+                keyName: document.getElementById('key-name').value,
+                masterKey: document.getElementById('key-master').value === 'true',
+                rateLimitPerMinute: parseInt(document.getElementById('key-ratelimit').value)
+            };
+            const res = await fetch('/api/admin/api-keys', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                alert(`API Key가 성공적으로 생성되었습니다!\n\nRAW API KEY (지금 복사하십시오. 다시 표시되지 않습니다):\n${data.rawApiKey}`);
+                closeKeyModal();
+                loadApiKeys();
+            }
+        }
+
+        async function deleteServer(id) {
+            if (confirm("이 서버 설정을 삭제하시겠습니까?")) {
+                await fetch('/api/admin/servers/' + id, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                loadServers();
+            }
+        }
+
+        async function deleteApiKey(id) {
+            if (confirm("이 API Key를 폐기하시겠습니까?")) {
+                await fetch('/api/admin/api-keys/' + id, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                loadApiKeys();
+            }
+        }
+
+        function escapeHtml(str) {
+            return str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
+        }
+    </script>
+</body>
+</html>
