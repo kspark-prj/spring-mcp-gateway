@@ -390,44 +390,8 @@
         </div>
     </div>
 
-    <!-- API Key Permission Management Modal -->
-    <div id="permissionModal" class="modal">
-        <div class="modal-content" style="width: 550px;">
-            <h3 style="margin-bottom: 10px;">🔑 API Key 도구 권한 관리</h3>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;" id="perm-key-info"></p>
-            <input type="hidden" id="perm-key-id">
 
-            <div style="background: #172033; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
-                <div class="form-group">
-                    <label>대상 업스트림 서버</label>
-                    <select id="perm-server-select"></select>
-                </div>
-                <div class="form-group">
-                    <label>허용 도구 목록 (쉼표 구분 또는 * 전체)</label>
-                    <input type="text" id="perm-tools-input" placeholder="예: * 또는 search_repo, create_issue">
-                </div>
-                <button class="btn" style="width: 100%; padding: 8px;" onclick="savePermission()">+ 권한 저장/업데이트</button>
-            </div>
 
-            <h4 style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 8px;">현재 설정된 서버별 권한</h4>
-            <table style="font-size: 0.85rem;">
-                <thead>
-                    <tr>
-                        <th>서버</th>
-                        <th>허용 도구 목록</th>
-                        <th>작업</th>
-                    </tr>
-                </thead>
-                <tbody id="perm-table-body">
-                    <!-- Dynamic insertion -->
-                </tbody>
-            </table>
-
-            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
-                <button class="btn btn-secondary" onclick="closePermissionModal()">닫기</button>
-            </div>
-        </div>
-    </div>
 
     <script>
         // ═══════════════════════════════════════════════════════════
@@ -782,7 +746,6 @@
                             <td>${k.rateLimitPerMinute} 회/분</td>
                             <td>${new Date(k.createdAt).toLocaleString()}</td>
                             <td>
-                                <button class="btn btn-secondary btn-sm" style="margin-right:5px;" onclick="openPermissionModal('${k.id}')">권한 관리</button>
                                 <button class="btn btn-danger btn-sm" onclick="deleteApiKey('${k.id}')">폐기</button>
                             </td>
                         </tr>
@@ -865,29 +828,6 @@
             }).catch(() => { alert('클립보드 복사에 실패했습니다. 수동으로 복사해주세요.'); });
         }
 
-        // ═══════════════════════════════════════════════════════════
-        // 권한 모달
-        // ═══════════════════════════════════════════════════════════
-        async function openPermissionModal(keyId) {
-            const key = apiKeysMap[keyId];
-            document.getElementById('perm-key-id').value = keyId;
-            if (key) {
-                if (key.masterKey) {
-                    document.getElementById('perm-key-info').innerHTML = `<strong>API Key:</strong> ${escapeHtml(key.keyName)} <span class="badge badge-stdio">마스터 Key (모든 도구 무제한)</span>`;
-                } else {
-                    document.getElementById('perm-key-info').innerHTML = `<strong>API Key:</strong> ${escapeHtml(key.keyName)} <span class="badge badge-http">일반 Key</span>`;
-                }
-            } else {
-                document.getElementById('perm-key-info').innerText = `API Key: ${keyId}`;
-            }
-            const select = document.getElementById('perm-server-select');
-            select.innerHTML = allServersList.map(s => `<option value="${s.id}">${escapeHtml(s.name)} (${s.transportType})</option>`).join('');
-            document.getElementById('perm-tools-input').value = '*';
-            loadPermissionsTable(keyId);
-            document.getElementById('permissionModal').style.display = 'flex';
-        }
-
-        function closePermissionModal() { document.getElementById('permissionModal').style.display = 'none'; }
 
         async function loadPermissionsTable(keyId) {
             try {

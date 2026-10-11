@@ -200,12 +200,7 @@ public class McpRoutingService {
     private Mono<JsonRpcResponse> handleToolsList(JsonRpcRequest request, McpApiKeyEntity apiKey) {
         return toolRegistryService.getEnabledToolEntities()
                 .flatMap(enabledTools -> Flux.fromIterable(enabledTools)
-                        .flatMap(tool ->
-                                // API Key 권한 검증 (serverId는 McpToolsEntity에서 직접 획득)
-                                apiKeyPermissionService.isToolAllowed(apiKey, tool.getServerId(), tool.getToolName())
-                                        .filter(Boolean::booleanValue)
-                                        .map(allowed -> toolRegistryService.toToolMap(tool))
-                        )
+                        .map(tool -> toolRegistryService.toToolMap(tool))
                         .collectList()
                         .map(allowedTools -> JsonRpcResponse.success(request.getId(), Map.of("tools", allowedTools))));
     }
@@ -358,31 +353,21 @@ public class McpRoutingService {
                                     return Mono.just(err);
                                 }
 
-                                // 3. API Key 권한 검증
-                                return apiKeyPermissionService.isToolAllowed(apiKey, serverId, originalToolName)
-                                        .flatMap(allowed -> {
-                                            if (!allowed) {
-                                                JsonRpcResponse err = JsonRpcResponse.error(request.getId(), JsonRpcError.UNAUTHORIZED, "API Key unauthorized for tool: " + namespacedToolName);
-                                                recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, err, System.currentTimeMillis() - startTime);
-                                                return Mono.just(err);
-                                            }
+                                // 3. API Key 권한 검증 로직 제거됨 -> 바로 업스트림 디스패치로 진행
+                                Map<String, Object> upstreamParams = new HashMap<>(params != null ? params : Map.of());
+                                upstreamParams.put("name", originalToolName);
 
-                                            // 4. 업스트림 디스패치
-                                            Map<String, Object> upstreamParams = new HashMap<>(params != null ? params : Map.of());
-                                            upstreamParams.put("name", originalToolName);
+                                Map<String, Object> upstreamRequestMap = Map.of(
+                                        "jsonrpc", "2.0",
+                                        "id", request.getId() != null ? request.getId() : UUID.randomUUID().toString(),
+                                        "method", "tools/call",
+                                        "params", upstreamParams
+                                );
 
-                                            Map<String, Object> upstreamRequestMap = Map.of(
-                                                    "jsonrpc", "2.0",
-                                                    "id", request.getId() != null ? request.getId() : UUID.randomUUID().toString(),
-                                                    "method", "tools/call",
-                                                    "params", upstreamParams
-                                            );
-
-                                            return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap)
-                                                    .doOnNext(response -> {
-                                                        long executionTimeMs = System.currentTimeMillis() - startTime;
-                                                        recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, response, executionTimeMs);
-                                                    });
+                                return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap)
+                                        .doOnNext(response -> {
+                                            long executionTimeMs = System.currentTimeMillis() - startTime;
+                                            recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, response, executionTimeMs);
                                         });
                             });
                 })

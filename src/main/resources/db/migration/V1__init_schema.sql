@@ -1,4 +1,4 @@
--- Flyway 마이그레이션 V1: MCP 게이트웨이 시스템 초기 데이터베이스 스키마 및 시드 데이터 (TSID Long ID 적용 통합본)
+-- Flyway 마이그레이션 통합본: MCP 게이트웨이 시스템 초기 데이터베이스 스키마 및 시드 데이터 (TSID Long ID 적용)
 
 ----------------------------------------------------
 -- 1. mcp_servers 테이블 (통합 관리 대상 MCP 업스트림 서버)
@@ -65,26 +65,7 @@ COMMENT ON COLUMN mcp_api_keys.created_at IS 'API Key 생성 일시';
 COMMENT ON COLUMN mcp_api_keys.updated_at IS 'API Key 최종 수정 일시';
 
 ----------------------------------------------------
--- 3. mcp_key_server_permissions 테이블 (API Key별 서버 및 도구 권한 매핑)
-----------------------------------------------------
-CREATE TABLE mcp_key_server_permissions (
-    id BIGINT PRIMARY KEY,
-    api_key_id BIGINT NOT NULL REFERENCES mcp_api_keys(id) ON DELETE CASCADE,
-    server_id BIGINT NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE,
-    allowed_tools_json TEXT DEFAULT '["*"]',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT uq_key_server UNIQUE (api_key_id, server_id)
-);
-
-COMMENT ON TABLE mcp_key_server_permissions IS 'API Key별 업스트림 서버 및 도구 단위 인가(Authorization) 매핑 테이블';
-COMMENT ON COLUMN mcp_key_server_permissions.id IS '권한 매핑 고유 식별자 (TSID Long)';
-COMMENT ON COLUMN mcp_key_server_permissions.api_key_id IS '연관된 API Key ID';
-COMMENT ON COLUMN mcp_key_server_permissions.server_id IS '연관된 업스트림 MCP 서버 ID';
-COMMENT ON COLUMN mcp_key_server_permissions.allowed_tools_json IS '허용된 도구 이름 목록 JSON 배열 또는 와일드카드 ["*"]';
-COMMENT ON COLUMN mcp_key_server_permissions.created_at IS '권한 부여 일시';
-
-----------------------------------------------------
--- 4. mcp_admin_users 테이블 (대시보드 관리자 계정)
+-- 3. mcp_admin_users 테이블 (대시보드 관리자 계정)
 ----------------------------------------------------
 CREATE TABLE mcp_admin_users (
     id BIGINT PRIMARY KEY,
@@ -104,7 +85,7 @@ COMMENT ON COLUMN mcp_admin_users.created_at IS '사용자 계정 생성 일시'
 COMMENT ON COLUMN mcp_admin_users.updated_at IS '사용자 계정 최종 수정 일시';
 
 ----------------------------------------------------
--- 5. mcp_system_settings 테이블 (전역 시스템 설정 및 동적 토글)
+-- 4. mcp_system_settings 테이블 (전역 시스템 설정 및 동적 토글)
 ----------------------------------------------------
 CREATE TABLE mcp_system_settings (
     id BIGINT PRIMARY KEY,
@@ -122,7 +103,7 @@ COMMENT ON COLUMN mcp_system_settings.description IS '사람이 읽을 수 있�
 COMMENT ON COLUMN mcp_system_settings.updated_at IS '설정 항목 최종 수정 일시';
 
 ----------------------------------------------------
--- 6. mcp_audit_logs 테이블 (게이트웨이 감사 로그)
+-- 5. mcp_audit_logs 테이블 (게이트웨이 감사 로그)
 ----------------------------------------------------
 CREATE TABLE mcp_audit_logs (
     id BIGINT PRIMARY KEY,
@@ -153,17 +134,65 @@ COMMENT ON COLUMN mcp_audit_logs.pii_masked IS '페이로드에 PII 마스킹 �
 COMMENT ON COLUMN mcp_audit_logs.error_message IS '실행 실패 시 오류 메시지';
 COMMENT ON COLUMN mcp_audit_logs.created_at IS '로그 기록 일시';
 
--- 성능 향상을 위한 인덱스 생성
+-- 성능 향상을 위한 인덱스 생성 (기존 테이블 관련)
 CREATE INDEX idx_audit_created_at ON mcp_audit_logs(created_at DESC);
 CREATE INDEX idx_audit_api_key ON mcp_audit_logs(api_key_id);
 CREATE INDEX idx_audit_server ON mcp_audit_logs(server_id);
 CREATE INDEX idx_api_keys_hash ON mcp_api_keys(key_hash_sha256);
 
 ----------------------------------------------------
+-- 6. mcp_tools 및 mcp_server_tool_hash 테이블 (도구 레지스트리 추가)
+----------------------------------------------------
+CREATE TABLE mcp_tools (
+    id              BIGINT PRIMARY KEY,
+    server_id       BIGINT NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE,
+    server_name     VARCHAR(100) NOT NULL,
+    tool_name       VARCHAR(200) NOT NULL,           -- 원본 tool name (namespace 미포함)
+    namespaced_name VARCHAR(300) NOT NULL UNIQUE,    -- {server_name}__{tool_name}
+    description     TEXT,
+    input_schema    TEXT,                            -- JSON 직렬화 inputSchema
+    tool_hash       VARCHAR(64) NOT NULL,            -- SHA-256(tool_name + description + inputSchema)
+    is_enabled      BOOLEAN NOT NULL DEFAULT TRUE,   -- 관리자 수동 토글 (업서트 시 초기화되지 않음)
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+COMMENT ON TABLE mcp_tools IS '업스트림 MCP 서버별 도구 메타데이터 영속 레지스트리 (해시 기반 Bulk Upsert 및 is_enabled 독립 토글 관리)';
+COMMENT ON COLUMN mcp_tools.id IS '도구 레지스트리 항목 고유 ID (TSID Long)';
+COMMENT ON COLUMN mcp_tools.server_id IS '연관된 업스트림 MCP 서버 ID (FK → mcp_servers.id)';
+COMMENT ON COLUMN mcp_tools.server_name IS '네임스페이스용 서버 이름 (비정규화 캐시)';
+COMMENT ON COLUMN mcp_tools.tool_name IS '업스트림 원본 도구 이름 (네임스페이스 미포함)';
+COMMENT ON COLUMN mcp_tools.namespaced_name IS '{server_name}__{tool_name} 형태의 전역 고유 도구 식별자';
+COMMENT ON COLUMN mcp_tools.description IS '도구 설명 텍스트';
+COMMENT ON COLUMN mcp_tools.input_schema IS 'JSON Schema 직렬화된 inputSchema';
+COMMENT ON COLUMN mcp_tools.tool_hash IS 'SHA-256(tool_name || description || inputSchema) 변경 감지 해시값';
+COMMENT ON COLUMN mcp_tools.is_enabled IS '관리자 수동 활성/비활성 토글 (동기화 시 초기화되지 않음, 신규 등록 시 기본값 true)';
+COMMENT ON COLUMN mcp_tools.created_at IS '최초 도구 등록 일시';
+COMMENT ON COLUMN mcp_tools.updated_at IS '도구 메타데이터 최종 갱신 일시';
+
+-- 조회 성능 최적화 인덱스
+CREATE INDEX idx_mcp_tools_server_id ON mcp_tools(server_id);
+CREATE INDEX idx_mcp_tools_is_enabled ON mcp_tools(is_enabled);
+CREATE INDEX idx_mcp_tools_server_name ON mcp_tools(server_name);
+
+-- 서버별 도구 목록 해시 집계 테이블 (서버 단위 변경 감지용 최신 해시 관리)
+CREATE TABLE mcp_server_tool_hash (
+    server_id   BIGINT PRIMARY KEY REFERENCES mcp_servers(id) ON DELETE CASCADE,
+    list_hash   VARCHAR(64) NOT NULL,    -- SHA-256(전체 도구 목록 직렬화값)
+    tool_count  INT NOT NULL DEFAULT 0,
+    synced_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+COMMENT ON TABLE mcp_server_tool_hash IS '서버별 전체 도구 목록의 SHA-256 해시값 관리 테이블 (변경 감지 및 Bulk Upsert 부하 차단용)';
+COMMENT ON COLUMN mcp_server_tool_hash.server_id IS '연관된 업스트림 MCP 서버 ID (PK = FK)';
+COMMENT ON COLUMN mcp_server_tool_hash.list_hash IS '도구 전체 목록의 SHA-256 해시값 (변경 미감지 시 Upsert 스킵)';
+COMMENT ON COLUMN mcp_server_tool_hash.tool_count IS '마지막 동기화 시 등록된 도구 수';
+COMMENT ON COLUMN mcp_server_tool_hash.synced_at IS '마지막 성공적 동기화 일시';
+
+----------------------------------------------------
 -- 초기 시드 데이터 (Initial Seed Data - Long형 숫자 ID 매핑)
----------------------------------------------------
+----------------------------------------------------
 -- 1. 초기 관리자 계정 (아이디: admin, 비밀번호: admin1)
--- 임의의 대형 정수형 ID(TSID 성격에 맞춘 수치) 부여
 INSERT INTO mcp_admin_users (id, username, password_hash, role)
 VALUES (
     71739281928374101,
@@ -183,7 +212,7 @@ VALUES (
     1000
 ) ON CONFLICT (key_hash_sha256) DO NOTHING;
 
--- 3. 초기 전역 시스템 설정 데이터 (id 컬럼 추가 및 숫자 ID 부여)
+-- 3. 초기 전역 시스템 설정 데이터
 INSERT INTO mcp_system_settings (id, setting_key, setting_value, description)
 VALUES
     (71739281928374103, 'pii_masking_enabled', 'true', '일반 PII 마스킹(이메일, 전화번호) 동적 토글. 인증 비밀값은 토글과 상관없이 항상 강제 마스킹 처리됨.'),

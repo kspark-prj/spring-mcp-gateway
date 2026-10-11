@@ -5,7 +5,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -13,15 +12,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.mcp.gateway.domain.McpApiKeyEntity;
-import com.mcp.gateway.domain.McpKeyServerPermissionEntity;
 import com.mcp.gateway.repository.McpApiKeyRepository;
-import com.mcp.gateway.repository.McpKeyServerPermissionRepository;
 
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -34,7 +29,6 @@ public class ApiKeyPermissionService {
     private static final Logger log = LoggerFactory.getLogger(ApiKeyPermissionService.class);
 
     private final McpApiKeyRepository apiKeyRepository;
-    private final McpKeyServerPermissionRepository permissionRepository;
     private final Cache<String, McpApiKeyEntity> apiKeyCache;
     private final ObjectMapper objectMapper;
 
@@ -42,11 +36,9 @@ public class ApiKeyPermissionService {
     private final ConcurrentHashMap<Long, RateLimitCounter> rateLimitMap = new ConcurrentHashMap<>();
 
     public ApiKeyPermissionService(McpApiKeyRepository apiKeyRepository,
-                                 McpKeyServerPermissionRepository permissionRepository,
                                  Cache<String, McpApiKeyEntity> apiKeyCache,
                                  ObjectMapper objectMapper) {
         this.apiKeyRepository = apiKeyRepository;
-        this.permissionRepository = permissionRepository;
         this.apiKeyCache = apiKeyCache;
         this.objectMapper = objectMapper;
     }
@@ -134,89 +126,9 @@ public class ApiKeyPermissionService {
         return counter.count.get() <= limit;
     }
 
-    /**
-     * Verifies if an authenticated API key is authorized to invoke a specific tool on a server.
-     *
-     * @param apiKey authenticated API key entity
-     * @param serverId target server UUID
-     * @param toolName target tool name (un-namespaced or namespaced)
-     * @return Mono emitting true if access is granted
-     */
-    public Mono<Boolean> isToolAllowed(McpApiKeyEntity apiKey, Long serverId, String toolName) {
-        if (apiKey == null) {
-            return Mono.just(false);
-        }
-        // Master API keys bypass permission checks
-        if (Boolean.TRUE.equals(apiKey.getMasterKey())) {
-            return Mono.just(true);
-        }
 
-        return permissionRepository.findByApiKeyIdAndServerId(apiKey.getId(), serverId)
-                .map(permission -> {
-                    String json = permission.getAllowedToolsJson();
-                    if (json == null || json.isBlank() || json.contains("\"*\"")) {
-                        return true;
-                    }
-                    try {
-                        List<String> allowed = objectMapper.readValue(json, new TypeReference<List<String>>() {});
-                        return allowed.contains("*") || allowed.contains(toolName);
-                    } catch (Exception e) {
-                        log.error("Failed to parse allowed tools JSON: {}", json, e);
-                        return false;
-                    }
-                })
-                .defaultIfEmpty(false);
-    }
 
-    /**
-     * Retrieves all server/tool permission mappings for a specified API Key.
-     */
-    public Flux<McpKeyServerPermissionEntity> getPermissionsForApiKey(Long apiKeyId) {
-        return permissionRepository.findByApiKeyId(apiKeyId);
-    }
 
-    /**
-     * Saves or updates tool permissions for an API Key on a specific server.
-     *
-     * @param apiKeyId API key ID
-     * @param serverId Server ID
-     * @param allowedTools List of allowed tool names (or "*" for wildcard)
-     * @return Mono emitting saved permission entity
-     */
-    public Mono<McpKeyServerPermissionEntity> saveOrUpdatePermission(Long apiKeyId, Long serverId, List<String> allowedTools) {
-        if (apiKeyId == null || serverId == null) {
-            return Mono.error(new IllegalArgumentException("apiKeyId and serverId must not be null"));
-        }
-
-        String json;
-        try {
-            List<String> tools = (allowedTools == null || allowedTools.isEmpty()) ? List.of("*") : allowedTools;
-            json = objectMapper.writeValueAsString(tools);
-        } catch (Exception e) {
-            json = "[\"*\"]";
-        }
-        final String finalJson = json;
-
-        return permissionRepository.findByApiKeyIdAndServerId(apiKeyId, serverId)
-                .flatMap(existing -> {
-                    existing.setAllowedToolsJson(finalJson);
-                    return permissionRepository.save(existing);
-                })
-                .switchIfEmpty(Mono.defer(() -> {
-                    McpKeyServerPermissionEntity newEntity = new McpKeyServerPermissionEntity(
-                            null, apiKeyId, serverId, finalJson, Instant.now()
-                    );
-                    newEntity.setNew(true);
-                    return permissionRepository.save(newEntity);
-                }));
-    }
-
-    /**
-     * Deletes permission mapping for an API key on a specific server.
-     */
-    public Mono<Void> deletePermission(Long apiKeyId, Long serverId) {
-        return permissionRepository.deleteByApiKeyIdAndServerId(apiKeyId, serverId);
-    }
 
     private static class RateLimitCounter {
         final long minuteWindow;
