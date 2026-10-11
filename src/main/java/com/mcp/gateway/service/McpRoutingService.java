@@ -384,11 +384,15 @@ public class McpRoutingService {
     @SuppressWarnings("unchecked")
     private Mono<JsonRpcResponse> dispatchToStdioUpstream(Object requestId, McpServerEntity server, Map<String, Object> upstreamRequestMap) {
         return Mono.fromCallable(() -> {
+            log.info("📌 [DISPATCH-STDIO-DEBUG] dispatchToStdioUpstream() called: server={}, requestId={}, method={}", server.getName(), requestId, upstreamRequestMap.get("method"));
             try {
                 String reqJson = objectMapper.writeValueAsString(upstreamRequestMap);
+                log.info("📌 [DISPATCH-STDIO-DEBUG] Sending to [{}] stdin: {}", server.getName(), reqJson.length() > 500 ? reqJson.substring(0, 500) + "..." : reqJson);
                 stdioProcessManager.sendInput(server.getId(), reqJson);
+                log.info("📌 [DISPATCH-STDIO-DEBUG] Waiting for response from [{}] (timeout=30s)...", server.getName());
                 String respJson = stdioProcessManager.pollResponse(server.getId(), 30000);
                 if (respJson != null) {
+                    log.info("📌 [DISPATCH-STDIO-DEBUG] Got response from [{}]: {}", server.getName(), respJson.length() > 500 ? respJson.substring(0, 500) + "..." : respJson);
                     Map<String, Object> respMap = objectMapper.readValue(respJson, Map.class);
                     JsonRpcResponse response = new JsonRpcResponse();
                     response.setId(requestId);
@@ -396,12 +400,14 @@ public class McpRoutingService {
                     if (respMap.containsKey("error") && respMap.get("error") instanceof Map errMap) {
                         int code = (int) errMap.getOrDefault("code", -32000);
                         String msg = (String) errMap.getOrDefault("message", "Upstream Error");
+                        log.warn("📌 [DISPATCH-STDIO-DEBUG] Upstream [{}] returned error: code={}, message={}", server.getName(), code, msg);
                         response.setError(new JsonRpcError(code, msg));
                     }
                     return response;
                 }
+                log.warn("📌 [DISPATCH-STDIO-DEBUG] TIMEOUT: No response from [{}] within 30s", server.getName());
             } catch (Exception e) {
-                log.error("STDIO Upstream [{}] failed", server.getName(), e);
+                log.error("📌 [DISPATCH-STDIO-DEBUG] EXCEPTION in dispatchToStdioUpstream [{}]: {} - {}", server.getName(), e.getClass().getSimpleName(), e.getMessage(), e);
             }
             return JsonRpcResponse.error(requestId, JsonRpcError.SERVER_ERROR, "Upstream STDIO Call Failed");
         });

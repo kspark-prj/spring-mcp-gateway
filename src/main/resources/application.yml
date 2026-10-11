@@ -54,6 +54,6 @@ logging:
     root: INFO
     com.mcp.gateway: DEBUG
     org.springframework.security: INFO
-    org.springframework.data.r2dbc: DEBUG
-    org.springframework.r2dbc: DEBUG
-    io.r2dbc: DEBUG
+    org.springframework.data.r2dbc: ERROR
+    org.springframework.r2dbc: ERROR
+    io.r2dbc: ERROR

@@ -251,3 +251,7 @@ Flyway 마이그레이션 스크립트(`src/main/resources/db/migration/V1__init
     - 새로운 API Key 생성 및 RAW 키 1회성 발급 안내
     - 동적 PII 마스킹 실시간 온/오프 토글 스위치
     - 실시간 감사 로그 조회 및 응답 상태 확인
+
+## 참고사항 
+- 윈도우에서 stdio 통신타입 서버를 등록시 예제 
+  npx -y @modelcontextprotocol/server-filesystem C:\Users\username\Downloads

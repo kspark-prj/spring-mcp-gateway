@@ -21,6 +21,8 @@ uv run fast_server_http_1.py
 # 게이트 웨이 인증 토큰헤더 추가가 안되어서 mcp_proxy.py 구동 후 프록시를 통해 테스
 # 로컬 포트 8000 기반 MCP 서버 테스트
 npx @modelcontextprotocol/inspector --server-url http://localhost:9000/mcp --transport http
+npx -y @modelcontextprotocol/server-filesystem C:\Users\username\Downloads
+
 #이러면 내부에서 spring mcp gateway url로 X-API-KEY 헤더값을 전달하여 호출
 
 ````

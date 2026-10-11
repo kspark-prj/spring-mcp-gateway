@@ -107,28 +107,73 @@ public class ToolRegistryService {
     @SuppressWarnings("unchecked")
     private Mono<List<Map<String, Object>>> fetchToolsFromStdioServer(McpServerEntity server) {
         return Mono.fromCallable(() -> {
+            log.info("📌 [TOOL-FETCH-DEBUG] fetchToolsFromStdioServer() START: server={}, id={}, commandLine={}", server.getName(), server.getId(), server.getCommandLine());
             try {
+                log.info("📌 [TOOL-FETCH-DEBUG] Step 0: Starting STDIO process for [{}]", server.getName());
                 StdioProcessManager.ManagedProcess mp = stdioProcessManager.startProcess(
                         server.getId(),
                         server.getName(),
                         server.getCommandLine(),
                         parseEnv(server.getEnvironmentVariables())
                 );
+                log.info("📌 [TOOL-FETCH-DEBUG] Step 0 DONE: Process started for [{}], processAlive={}", server.getName(), mp.process != null && mp.process.isAlive());
+
+                // Step 1: MCP initialize 핸드셰이크 수행
+                String initReqJson = objectMapper.writeValueAsString(Map.of(
+                        "jsonrpc", "2.0",
+                        "id", UUID.randomUUID().toString(),
+                        "method", "initialize",
+                        "params", Map.of(
+                                "protocolVersion", "2024-11-05",
+                                "capabilities", Map.of(),
+                                "clientInfo", Map.of(
+                                        "name", "spring-mcp-gateway",
+                                        "version", "1.0.0"
+                                )
+                        )
+                ));
+                log.info("📌 [TOOL-FETCH-DEBUG] Step 1: Sending initialize to [{}]: {}", server.getName(), initReqJson);
+                stdioProcessManager.sendInput(server.getId(), initReqJson);
+                log.info("📌 [TOOL-FETCH-DEBUG] Step 1: Waiting for initialize response from [{}] (timeout=10s)...", server.getName());
+                String initResp = stdioProcessManager.pollResponse(server.getId(), 10000);
+                if (initResp == null) {
+                    log.warn("📌 [TOOL-FETCH-DEBUG] Step 1 FAILED: STDIO server [{}] did not respond to initialize within 10s timeout", server.getName());
+                    return Collections.<Map<String, Object>>emptyList();
+                }
+                log.info("📌 [TOOL-FETCH-DEBUG] Step 1 OK: initialize response from [{}]: {}", server.getName(), initResp);
+
+                // Step 2: notifications/initialized 알림 전송
+                String notifyJson = objectMapper.writeValueAsString(Map.of(
+                        "jsonrpc", "2.0",
+                        "method", "notifications/initialized"
+                ));
+                log.info("📌 [TOOL-FETCH-DEBUG] Step 2: Sending notifications/initialized to [{}]", server.getName());
+                stdioProcessManager.sendInput(server.getId(), notifyJson);
+                log.info("📌 [TOOL-FETCH-DEBUG] Step 2 OK: notifications/initialized sent to [{}]", server.getName());
+
+                // Step 3: tools/list 요청 전송
                 String reqJson = objectMapper.writeValueAsString(Map.of(
                         "jsonrpc", "2.0",
                         "id", UUID.randomUUID().toString(),
                         "method", "tools/list",
                         "params", Map.of()
                 ));
+                log.info("📌 [TOOL-FETCH-DEBUG] Step 3: Sending tools/list to [{}]: {}", server.getName(), reqJson);
                 stdioProcessManager.sendInput(server.getId(), reqJson);
+                log.info("📌 [TOOL-FETCH-DEBUG] Step 3: Waiting for tools/list response from [{}] (timeout=5s)...", server.getName());
                 String respJson = stdioProcessManager.pollResponse(server.getId(), 5000);
                 if (respJson != null) {
+                    log.info("📌 [TOOL-FETCH-DEBUG] Step 3 OK: tools/list response from [{}]: {}", server.getName(), respJson.length() > 1000 ? respJson.substring(0, 1000) + "..." : respJson);
                     Map<String, Object> respMap = objectMapper.readValue(respJson, Map.class);
-                    return extractAndNamespaceTools(server.getName(), respMap);
+                    List<Map<String, Object>> tools = extractAndNamespaceTools(server.getName(), respMap);
+                    log.info("📌 [TOOL-FETCH-DEBUG] FINAL: Extracted {} tools from [{}]", tools.size(), server.getName());
+                    return tools;
                 }
+                log.warn("📌 [TOOL-FETCH-DEBUG] Step 3 FAILED: tools/list response was null (timeout) for [{}]", server.getName());
             } catch (Exception e) {
-                log.warn("Failed to fetch tools from STDIO server [{}]: {}", server.getName(), e.getMessage());
+                log.warn("📌 [TOOL-FETCH-DEBUG] EXCEPTION in fetchToolsFromStdioServer [{}]: {} - {}", server.getName(), e.getClass().getSimpleName(), e.getMessage(), e);
             }
+            log.warn("📌 [TOOL-FETCH-DEBUG] fetchToolsFromStdioServer() returning EMPTY list for [{}]", server.getName());
             return Collections.<Map<String, Object>>emptyList();
         });
     }
