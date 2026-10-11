@@ -16,213 +16,165 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.mcp.gateway.domain.McpServerEntity;
+import com.mcp.gateway.domain.McpToolsEntity;
 import com.mcp.gateway.repository.McpServerRepository;
+import com.mcp.gateway.repository.McpToolsRepository;
 import com.mcp.gateway.transport.http.McpHttpSessionManager;
 import com.mcp.gateway.transport.stdio.StdioProcessManager;
 
 import reactor.core.publisher.Mono;
 
 /**
- * Service managing aggregated tool catalog discovery, merging, and namespace prefixing ({server_name}__{tool_name}).
+ * Runtime tool catalog service providing near-zero-latency tool discovery
+ * through an unbounded Caffeine in-memory cache.
+ *
+ * <h2>캐시 우선 전략 (Rule 2)</h2>
+ * <ul>
+ *   <li>런타임 도구 탐색 및 호출 시점에는 DB 조회를 절대 수행하지 않는다.</li>
+ *   <li>무기한 Caffeine 캐시를 우선 참조하여 0ms에 가까운 응답 성능을 보장한다.</li>
+ *   <li>캐시 미스(cold start 또는 evict 후 첫 호출) 시에만 DB에서 로드한다.</li>
+ *   <li>캐시는 {@link ToolSyncService}가 동기화 완료 후 명시적으로 evict/rebuild한다.</li>
+ * </ul>
+ *
+ * <h2>is_enabled 필터링 (Rule 3)</h2>
+ * <ul>
+ *   <li>{@code is_enabled = true}인 도구만 캐시에 적재 및 LLM에 노출한다.</li>
+ *   <li>비활성 도구의 스키마 노출을 완전 차단한다.</li>
+ * </ul>
  */
 @Service
 public class ToolRegistryService {
 
     private static final Logger log = LoggerFactory.getLogger(ToolRegistryService.class);
-    public static final String NAMESPACE_SEPARATOR = "__";
-    private static final String CATALOG_CACHE_KEY = "UNIFIED_TOOL_CATALOG";
 
-    private final McpServerRepository serverRepository;
-    private final StdioProcessManager stdioProcessManager;
-    private final Cache<String, List<Map<String, Object>>> toolRegistryCache;
-    private final McpHttpSessionManager httpSessionManager;
+    public static final String NAMESPACE_SEPARATOR = "__";
+    /** Caffeine 캐시 키: 전체 활성 도구 목록 */
+    public static final String CATALOG_CACHE_KEY = "UNIFIED_TOOL_CATALOG";
+
+    private final McpToolsRepository toolsRepository;
+    /** toolRegistryCache — 무기한 Caffeine 캐시 (expiry 없음) */
+    private final Cache<String, List<McpToolsEntity>> toolRegistryCache;
+
+    // ── 하위 호환을 위해 유지: AdminServerController.getDiscoveredTools()가
+    //    Map 형태 응답을 기대하므로 변환 메서드 제공
     private final ObjectMapper objectMapper;
 
-    public ToolRegistryService(McpServerRepository serverRepository,
-                               StdioProcessManager stdioProcessManager,
-                               Cache<String, List<Map<String, Object>>> toolRegistryCache,
-                               McpHttpSessionManager httpSessionManager,
+    public ToolRegistryService(McpToolsRepository toolsRepository,
+                               Cache<String, List<McpToolsEntity>> toolRegistryCache,
                                ObjectMapper objectMapper) {
-        this.serverRepository = serverRepository;
-        this.stdioProcessManager = stdioProcessManager;
+        this.toolsRepository = toolsRepository;
         this.toolRegistryCache = toolRegistryCache;
-        this.httpSessionManager = httpSessionManager;
         this.objectMapper = objectMapper;
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // Public API
+    // ═══════════════════════════════════════════════════════════════════
+
     /**
-     * Retrieves the merged list of tools across all active upstream MCP servers, namespaced with {server_name}__{tool_name}.
+     * 활성화된({@code is_enabled=true}) 전체 도구 목록을 {@link McpToolsEntity} 형태로 반환한다.
      *
-     * @return Mono emitting list of namespaced tool definition maps
+     * <p>
+     * <b>캐시 우선 전략</b>: Caffeine 캐시 히트 시 DB 조회 없이 즉시 반환.
+     * 캐시 미스 시 DB 로드 후 캐시 저장.
+     * </p>
+     *
+     * @return is_enabled=true인 도구 목록 Mono
+     */
+    public Mono<List<McpToolsEntity>> getEnabledToolEntities() {
+        List<McpToolsEntity> cached = toolRegistryCache.getIfPresent(CATALOG_CACHE_KEY);
+        if (cached != null) {
+            log.debug("⚡ [ToolRegistry] Cache hit: {} enabled tools returned from Caffeine.", cached.size());
+            return Mono.just(cached);
+        }
+
+        log.info("🔍 [ToolRegistry] Cache miss — loading enabled tools from DB...");
+        return toolsRepository.findByIsEnabledTrue()
+                .collectList()
+                .doOnNext(tools -> {
+                    toolRegistryCache.put(CATALOG_CACHE_KEY, tools);
+                    log.info("💾 [ToolRegistry] DB load complete: {} enabled tools cached.", tools.size());
+                });
+    }
+
+    /**
+     * 활성화된 도구 목록을 {@code tools/list} 응답 호환 형태의 {@code Map<String, Object>}로 반환한다.
+     * <p>
+     * MCP JSON-RPC 프로토콜 응답 및 관리자 조회용.
+     * 캐시 우선 전략 동일 적용 ({@link #getEnabledToolEntities()} 위임).
+     * </p>
+     *
+     * @return namespaced tool definition map list
      */
     public Mono<List<Map<String, Object>>> getUnifiedToolCatalog() {
-    	log.info("🔍 [Debug] getUnifiedToolCatalog() called!"); // 여기에 로그 추가
-
-        List<Map<String, Object>> cachedCatalog = toolRegistryCache.getIfPresent(CATALOG_CACHE_KEY);
-        if (cachedCatalog != null) {
-            log.info("🔍 [Debug] Returning from Cache!"); // 캐시 타는지 확인
-            return Mono.just(cachedCatalog);
-        }
-
-        return serverRepository.findByEnabledTrue()
-                .doOnNext(server -> log.info("🔍 [Debug] Found active server from DB: {}", server.getName())) // DB 조회 결과 확인
-                .flatMap(this::fetchToolsForServer)
-                .collectList()
-                .map(lists -> {
-                    List<Map<String, Object>> unified = new ArrayList<>();
-                    for (List<Map<String, Object>> list : lists) {
-                        unified.addAll(list);
+        return getEnabledToolEntities()
+                .map(tools -> {
+                    List<Map<String, Object>> result = new ArrayList<>(tools.size());
+                    for (McpToolsEntity tool : tools) {
+                        result.add(toToolMap(tool));
                     }
-                    toolRegistryCache.put(CATALOG_CACHE_KEY, unified);
-                    return unified;
+                    return result;
                 });
     }
 
-    private Mono<List<Map<String, Object>>> fetchToolsForServer(McpServerEntity server) {
-        if ("HTTP".equalsIgnoreCase(server.getTransportType())) {
-            return fetchToolsFromHttpServer(server);
-        } else if ("STDIO".equalsIgnoreCase(server.getTransportType())) {
-            return fetchToolsFromStdioServer(server);
+    /**
+     * 특정 도구가 활성화 상태인지 확인한다 (namespaced_name 기준).
+     * 캐시 또는 DB에서 조회하여 판단.
+     *
+     * @param namespacedName {@code serverName__toolName}
+     * @return {@code true}이면 활성화 상태
+     */
+    public Mono<Boolean> isToolEnabled(String namespacedName) {
+        // 캐시에서 먼저 확인
+        List<McpToolsEntity> cached = toolRegistryCache.getIfPresent(CATALOG_CACHE_KEY);
+        if (cached != null) {
+            boolean enabled = cached.stream()
+                    .anyMatch(t -> namespacedName.equals(t.getNamespacedName()));
+            return Mono.just(enabled);
         }
-        return Mono.just(Collections.emptyList());
+        // 캐시 미스 시 DB 단건 조회
+        return toolsRepository.findByNamespacedName(namespacedName)
+                .map(tool -> Boolean.TRUE.equals(tool.getIsEnabled()))
+                .defaultIfEmpty(false);
     }
 
-    private Mono<List<Map<String, Object>>> fetchToolsFromHttpServer(McpServerEntity server) {
-        Map<String, Object> jsonRpcReq = Map.of(
-                "jsonrpc", "2.0",
-                "id", UUID.randomUUID().toString(),
-                "method", "tools/list",
-                "params", Map.of()
-        );
-
-        return httpSessionManager.sendRequest(server.getEndpointUrl(), jsonRpcReq)
-                .timeout(Duration.ofSeconds(10))
-                .map(resp -> extractAndNamespaceTools(server.getName(), resp))
-                .onErrorResume(ex -> {
-                    log.warn("Failed to fetch tools from HTTP server [{}] ({}): {}", server.getName(), server.getEndpointUrl(), ex.getMessage());
-                    return Mono.just(Collections.emptyList());
-                });
+    /**
+     * 캐시를 즉시 무효화한다.
+     * {@link ToolSyncService} 및 {@code AdminToolController}에서 호출.
+     */
+    public void evictCache() {
+        toolRegistryCache.invalidateAll();
+        log.info("🗑️  [ToolRegistry] Tool registry cache evicted.");
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // Utility
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * {@link McpToolsEntity}를 MCP tools/list 응답 호환 Map으로 변환한다.
+     */
     @SuppressWarnings("unchecked")
-    private Mono<List<Map<String, Object>>> fetchToolsFromStdioServer(McpServerEntity server) {
-        return Mono.fromCallable(() -> {
-            log.info("📌 [TOOL-FETCH-DEBUG] fetchToolsFromStdioServer() START: server={}, id={}, commandLine={}", server.getName(), server.getId(), server.getCommandLine());
+    public Map<String, Object> toToolMap(McpToolsEntity tool) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("name", tool.getNamespacedName());
+        map.put("originalName", tool.getToolName());
+        map.put("serverName", tool.getServerName());
+        if (tool.getDescription() != null) {
+            map.put("description", tool.getDescription());
+        }
+        // inputSchema 역직렬화 (Map 형태로 변환)
+        if (tool.getInputSchema() != null && !tool.getInputSchema().isBlank()) {
             try {
-                log.info("📌 [TOOL-FETCH-DEBUG] Step 0: Starting STDIO process for [{}]", server.getName());
-                StdioProcessManager.ManagedProcess mp = stdioProcessManager.startProcess(
-                        server.getId(),
-                        server.getName(),
-                        server.getCommandLine(),
-                        parseEnv(server.getEnvironmentVariables())
-                );
-                log.info("📌 [TOOL-FETCH-DEBUG] Step 0 DONE: Process started for [{}], processAlive={}", server.getName(), mp.process != null && mp.process.isAlive());
-
-                // Step 1: MCP initialize 핸드셰이크 수행
-                String initReqJson = objectMapper.writeValueAsString(Map.of(
-                        "jsonrpc", "2.0",
-                        "id", UUID.randomUUID().toString(),
-                        "method", "initialize",
-                        "params", Map.of(
-                                "protocolVersion", "2024-11-05",
-                                "capabilities", Map.of(),
-                                "clientInfo", Map.of(
-                                        "name", "spring-mcp-gateway",
-                                        "version", "1.0.0"
-                                )
-                        )
-                ));
-                log.info("📌 [TOOL-FETCH-DEBUG] Step 1: Sending initialize to [{}]: {}", server.getName(), initReqJson);
-                stdioProcessManager.sendInput(server.getId(), initReqJson);
-                log.info("📌 [TOOL-FETCH-DEBUG] Step 1: Waiting for initialize response from [{}] (timeout=10s)...", server.getName());
-                String initResp = stdioProcessManager.pollResponse(server.getId(), 10000);
-                if (initResp == null) {
-                    log.warn("📌 [TOOL-FETCH-DEBUG] Step 1 FAILED: STDIO server [{}] did not respond to initialize within 10s timeout", server.getName());
-                    return Collections.<Map<String, Object>>emptyList();
-                }
-                log.info("📌 [TOOL-FETCH-DEBUG] Step 1 OK: initialize response from [{}]: {}", server.getName(), initResp);
-
-                // Step 2: notifications/initialized 알림 전송
-                String notifyJson = objectMapper.writeValueAsString(Map.of(
-                        "jsonrpc", "2.0",
-                        "method", "notifications/initialized"
-                ));
-                log.info("📌 [TOOL-FETCH-DEBUG] Step 2: Sending notifications/initialized to [{}]", server.getName());
-                stdioProcessManager.sendInput(server.getId(), notifyJson);
-                log.info("📌 [TOOL-FETCH-DEBUG] Step 2 OK: notifications/initialized sent to [{}]", server.getName());
-
-                // Step 3: tools/list 요청 전송
-                String reqJson = objectMapper.writeValueAsString(Map.of(
-                        "jsonrpc", "2.0",
-                        "id", UUID.randomUUID().toString(),
-                        "method", "tools/list",
-                        "params", Map.of()
-                ));
-                log.info("📌 [TOOL-FETCH-DEBUG] Step 3: Sending tools/list to [{}]: {}", server.getName(), reqJson);
-                stdioProcessManager.sendInput(server.getId(), reqJson);
-                log.info("📌 [TOOL-FETCH-DEBUG] Step 3: Waiting for tools/list response from [{}] (timeout=5s)...", server.getName());
-                String respJson = stdioProcessManager.pollResponse(server.getId(), 5000);
-                if (respJson != null) {
-                    log.info("📌 [TOOL-FETCH-DEBUG] Step 3 OK: tools/list response from [{}]: {}", server.getName(), respJson.length() > 1000 ? respJson.substring(0, 1000) + "..." : respJson);
-                    Map<String, Object> respMap = objectMapper.readValue(respJson, Map.class);
-                    List<Map<String, Object>> tools = extractAndNamespaceTools(server.getName(), respMap);
-                    log.info("📌 [TOOL-FETCH-DEBUG] FINAL: Extracted {} tools from [{}]", tools.size(), server.getName());
-                    return tools;
-                }
-                log.warn("📌 [TOOL-FETCH-DEBUG] Step 3 FAILED: tools/list response was null (timeout) for [{}]", server.getName());
+                Object schema = objectMapper.readValue(tool.getInputSchema(),
+                        new TypeReference<Map<String, Object>>() {});
+                map.put("inputSchema", schema);
             } catch (Exception e) {
-                log.warn("📌 [TOOL-FETCH-DEBUG] EXCEPTION in fetchToolsFromStdioServer [{}]: {} - {}", server.getName(), e.getClass().getSimpleName(), e.getMessage(), e);
+                map.put("inputSchema", Map.of());
             }
-            log.warn("📌 [TOOL-FETCH-DEBUG] fetchToolsFromStdioServer() returning EMPTY list for [{}]", server.getName());
-            return Collections.<Map<String, Object>>emptyList();
-        });
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> extractAndNamespaceTools(String serverName, Map<String, Object> jsonRpcResponse) {
-    	// ▼▼▼ 여기에 응답값을 통째로 찍어보는 로그 추가 ▼▼▼
-        log.info("🔍 [Upstream Response Debug] Server: {}, Response: {}", serverName, jsonRpcResponse);
-
-        if (jsonRpcResponse == null || !jsonRpcResponse.containsKey("result")) {
-            log.warn("❌ [Debug] 'result' key missing in response from server: {}", serverName);
-            return Collections.emptyList();
+        } else {
+            map.put("inputSchema", Map.of());
         }
-        Object resultObj = jsonRpcResponse.get("result");
-        if (!(resultObj instanceof Map)) {
-            log.warn("❌ [Debug] 'result' is not a Map from server: {}", serverName);
-            return Collections.emptyList();
-        }
-        Map<String, Object> resultMap = (Map<String, Object>) resultObj;
-        Object toolsObj = resultMap.get("tools");
-        if (!(toolsObj instanceof List)) {
-            log.warn("❌ [Debug] 'tools' is not a List from server: {}", serverName);
-            return Collections.emptyList();
-        }
-
-        List<Map<String, Object>> originalTools = (List<Map<String, Object>>) toolsObj;
-        log.info("✅ [Debug] Successfully parsed {} tools from server: {}", originalTools.size(), serverName);
-
-        List<Map<String, Object>> namespacedTools = new ArrayList<>();
-
-        for (Map<String, Object> tool : originalTools) {
-            Map<String, Object> copy = new HashMap<>(tool);
-            String originalName = (String) copy.get("name");
-            String namespacedName = serverName + NAMESPACE_SEPARATOR + originalName;
-            copy.put("name", namespacedName);
-            copy.put("originalName", originalName);
-            copy.put("serverName", serverName);
-            namespacedTools.add(copy);
-        }
-
-        return namespacedTools;
-    }
-
-    private Map<String, String> parseEnv(String envJson) {
-        if (envJson == null || envJson.isBlank()) return Collections.emptyMap();
-        try {
-            return objectMapper.readValue(envJson, new TypeReference<Map<String, String>>() {});
-        } catch (Exception e) {
-            return Collections.emptyMap();
-        }
+        return map;
     }
 }

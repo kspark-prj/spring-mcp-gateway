@@ -16,12 +16,13 @@
             --success-color: #4ade80;
             --danger-color: #f87171;
             --warning-color: #fbbf24;
+            --disabled-color: #64748b;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; }
 
-        #app-container { display: none; } /* Hidden until authenticated */
+        #app-container { display: none; }
 
         header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); margin-bottom: 25px; }
         h1 { font-size: 1.5rem; color: var(--accent-color); }
@@ -29,49 +30,72 @@
 
         .btn { background-color: var(--accent-color); color: #000; font-weight: 600; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
         .btn:hover { background-color: var(--accent-hover); color: #fff; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-danger { background-color: var(--danger-color); color: #000; }
         .btn-secondary { background-color: var(--border-color); color: var(--text-main); }
+        .btn-success { background-color: var(--success-color); color: #000; }
+        .btn-warning { background-color: var(--warning-color); color: #000; }
+        .btn-sm { padding: 3px 8px; font-size: 0.78rem; }
 
-        .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 25px; }
         .stat-card { background: var(--card-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); }
-        .stat-card h3 { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+        .stat-card h3 { font-size: 0.82rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
         .stat-card p { font-size: 1.8rem; font-weight: bold; color: var(--accent-color); }
 
-        .section-title { font-size: 1.2rem; margin-bottom: 15px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
+        .section-title { font-size: 1.15rem; margin-bottom: 15px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .section-title-actions { display: flex; gap: 8px; align-items: center; }
 
         .card { background: var(--card-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 25px; }
         table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px; }
-        th, td { padding: 12px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th, td { padding: 11px 12px; border-bottom: 1px solid var(--border-color); font-size: 0.88rem; }
         th { color: var(--text-muted); font-weight: 600; background: #172033; }
         tr:hover { background: #26334d; }
 
-        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
-        .badge-healthy { background: rgba(74, 222, 128, 0.2); color: var(--success-color); }
-        .badge-down { background: rgba(248, 113, 113, 0.2); color: var(--danger-color); }
-        .badge-http { background: rgba(56, 189, 248, 0.2); color: var(--accent-color); }
-        .badge-stdio { background: rgba(251, 191, 36, 0.2); color: var(--warning-color); }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.73rem; font-weight: bold; text-transform: uppercase; }
+        .badge-healthy { background: rgba(74,222,128,0.18); color: var(--success-color); }
+        .badge-down    { background: rgba(248,113,113,0.18); color: var(--danger-color); }
+        .badge-http    { background: rgba(56,189,248,0.18); color: var(--accent-color); }
+        .badge-stdio   { background: rgba(251,191,36,0.18); color: var(--warning-color); }
+        .badge-enabled  { background: rgba(74,222,128,0.18); color: var(--success-color); }
+        .badge-disabled { background: rgba(100,116,139,0.25); color: var(--disabled-color); }
 
         .toggle-container { display: flex; align-items: center; gap: 10px; }
-        .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-color); transition: .3s; border-radius: 24px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-color); transition: .3s; border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--accent-color); }
         input:checked + .slider:before { transform: translateX(22px); }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background: var(--card-bg); padding: 25px; border-radius: 8px; border: 1px solid var(--border-color); width: 400px; max-width: 90%; }
+        .modal-content { background: var(--card-bg); padding: 25px; border-radius: 8px; border: 1px solid var(--border-color); width: 400px; max-width: 95%; max-height: 90vh; overflow-y: auto; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-size: 0.85rem; color: var(--text-muted); }
         .form-group input, .form-group select { width: 100%; padding: 8px 12px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 4px; color: #fff; }
 
-        /* Fullscreen Login Overlay */
         #login-overlay { display: flex; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: var(--bg-color); justify-content: center; align-items: center; z-index: 2000; }
         .login-card { background: var(--card-bg); padding: 35px; border-radius: 10px; border: 1px solid var(--border-color); width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         .login-card h2 { text-align: center; margin-bottom: 25px; color: var(--accent-color); font-size: 1.4rem; }
         .error-alert { color: var(--danger-color); font-size: 0.85rem; margin-bottom: 15px; text-align: center; display: none; }
 
+        /* 도구 필터 바 */
+        .tool-filter-bar { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+        .tool-filter-bar select, .tool-filter-bar input { padding: 6px 10px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 4px; color: #fff; font-size: 0.85rem; }
+        .tool-filter-bar select { min-width: 160px; }
+
+        /* 동기화 상태 표시 */
+        .sync-status { font-size: 0.8rem; color: var(--text-muted); }
+        .sync-status.ok { color: var(--success-color); }
+        .sync-status.error { color: var(--danger-color); }
+        .sync-status.loading { color: var(--warning-color); }
+
+        /* 도구 스키마 tooltip */
+        .tool-desc { max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); font-size: 0.82rem; }
+
         canvas { width: 100%; height: 180px; }
+
+        /* 스크롤 가능한 도구 테이블 */
+        .tools-table-wrapper { max-height: 460px; overflow-y: auto; }
     </style>
 </head>
 <body>
@@ -123,6 +147,10 @@
                 <h3>활성 업스트림 서버</h3>
                 <p id="stat-servers">0</p>
             </div>
+            <div class="stat-card">
+                <h3>활성 도구 수 (is_enabled)</h3>
+                <p id="stat-tools">0</p>
+            </div>
         </div>
 
         <!-- System Controls & PII Toggle -->
@@ -148,8 +176,12 @@
         <div class="card">
             <div class="section-title">
                 <span>업스트림 MCP 서버 관리</span>
-                <button class="btn" onclick="openServerModal()">+ 서버 등록</button>
+                <div class="section-title-actions">
+                    <button class="btn btn-success" onclick="syncAllToolsFromDashboard()" id="btn-sync-all" title="전체 서버 도구 목록 즉시 동기화">🔄 전체 도구 동기화</button>
+                    <button class="btn" onclick="openServerModal()">+ 서버 등록</button>
+                </div>
             </div>
+            <span id="sync-all-status" class="sync-status"></span>
             <table>
                 <thead>
                     <tr>
@@ -164,6 +196,52 @@
                     <!-- Dynamic insertion -->
                 </tbody>
             </table>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- 도구 레지스트리 관리 섹션 (신규)                         -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="card">
+            <div class="section-title">
+                <span>🔧 도구 레지스트리 관리 <small style="font-size:0.75rem; color:var(--text-muted);">is_enabled 토글 · 서버별 새로고침</small></span>
+                <div class="section-title-actions">
+                    <span id="tool-sync-status" class="sync-status"></span>
+                </div>
+            </div>
+
+            <!-- 필터 바 -->
+            <div class="tool-filter-bar">
+                <select id="tool-filter-server" onchange="applyToolFilter()">
+                    <option value="">— 전체 서버 —</option>
+                </select>
+                <select id="tool-filter-enabled" onchange="applyToolFilter()">
+                    <option value="">— 활성화 상태 전체 —</option>
+                    <option value="true">활성화만 (is_enabled=true)</option>
+                    <option value="false">비활성화만 (is_enabled=false)</option>
+                </select>
+                <input type="text" id="tool-filter-keyword" placeholder="도구 이름 검색..." oninput="applyToolFilter()" style="min-width:180px;">
+                <button class="btn btn-secondary" onclick="loadTools()" style="padding:6px 12px; font-size:0.85rem;">↻ 새로고침</button>
+            </div>
+
+            <div class="tools-table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:36%">네임스페이스 도구명</th>
+                            <th style="width:13%">서버</th>
+                            <th style="width:30%">설명</th>
+                            <th style="width:10%; text-align:center;">활성화</th>
+                            <th style="width:11%; text-align:center;">서버 동기화</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tools-table-body">
+                        <tr><td colspan="5" style="text-align:center; color:var(--text-muted);">도구를 불러오는 중...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px;">
+                💡 <strong>is_enabled</strong>를 OFF로 설정하면 LLM 도구 탐색(tools/list) 및 호출(tools/call) 시 즉시 차단됩니다. 동기화(새로고침)는 해시 비교 후 변동이 있을 때만 DB Upsert를 수행합니다.
+            </p>
         </div>
 
         <!-- API Key Management Section -->
@@ -236,7 +314,7 @@
                 <input type="text" id="srv-cmd" placeholder="npx -y @modelcontextprotocol/server-filesystem /tmp">
             </div>
 
-            <!-- 서킷브레이커 설정 동적 관리 필드 -->
+            <!-- 서킷브레이커 설정 -->
             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
                 <h4 style="font-size: 0.95rem; color: var(--accent-color); margin-bottom: 10px;">⚡ 서킷브레이커 동적 설정</h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -292,7 +370,7 @@
         </div>
     </div>
 
-    <!-- API Key 발급 결과 및 복사 레이어 팝업 추가됨 -->
+    <!-- API Key 발급 결과 팝업 -->
     <div id="keyResultModal" class="modal">
         <div class="modal-content" style="width: 480px;">
             <h3 style="margin-bottom: 10px; color: var(--success-color);">🎉 API Key 발급 완료</h3>
@@ -352,28 +430,47 @@
     </div>
 
     <script>
+        // ═══════════════════════════════════════════════════════════
+        // 전역 상태
+        // ═══════════════════════════════════════════════════════════
         let refreshTimer = null;
+        let serversMap = {};
+        let allServersList = [];
+        let apiKeysMap = {};
+        /** 전체 도구 목록 (DB에서 로드, is_enabled 포함) */
+        let allToolsList = [];
 
+        // ═══════════════════════════════════════════════════════════
+        // 유틸리티
+        // ═══════════════════════════════════════════════════════════
         function getCsrfToken() {
             const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
             return match ? match[1] : '';
         }
 
         function getAuthHeaders(extraHeaders = {}) {
-            const headers = {
-                'Content-Type': 'application/json',
-                ...extraHeaders
-            };
+            const headers = { 'Content-Type': 'application/json', ...extraHeaders };
             const csrf = getCsrfToken();
-            if (csrf) {
-                headers['X-XSRF-TOKEN'] = csrf;
-            }
+            if (csrf) headers['X-XSRF-TOKEN'] = csrf;
             return headers;
         }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            checkSession();
-        });
+        function escapeHtml(str) {
+            return str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
+        }
+
+        function showSyncStatus(elId, msg, type = 'ok') {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            el.textContent = msg;
+            el.className = 'sync-status ' + type;
+            if (type === 'ok') setTimeout(() => { el.textContent = ''; el.className = 'sync-status'; }, 4000);
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // 인증
+        // ═══════════════════════════════════════════════════════════
+        document.addEventListener("DOMContentLoaded", () => { checkSession(); });
 
         async function checkSession() {
             try {
@@ -389,14 +486,9 @@
                     }
                 }
             } catch (e) {}
-
-            // Unauthenticated
             document.getElementById('login-overlay').style.display = 'flex';
             document.getElementById('app-container').style.display = 'none';
-            if (refreshTimer) {
-                clearInterval(refreshTimer);
-                refreshTimer = null;
-            }
+            if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
         }
 
         async function handleLogin(event) {
@@ -404,16 +496,13 @@
             const usernameInput = document.getElementById('login-username').value;
             const passwordInput = document.getElementById('login-password').value;
             const errorDiv = document.getElementById('login-error');
-
             errorDiv.style.display = 'none';
-
             try {
                 const res = await fetch('/api/admin/login', {
                     method: 'POST',
                     headers: getAuthHeaders(),
                     body: JSON.stringify({ username: usernameInput, password: passwordInput })
                 });
-
                 if (res.ok) {
                     checkSession();
                 } else {
@@ -428,20 +517,16 @@
         }
 
         async function handleLogout() {
-            try {
-                await fetch('/api/admin/logout', {
-                    method: 'POST',
-                    headers: getAuthHeaders()
-                });
-            } catch (e) {}
+            try { await fetch('/api/admin/logout', { method: 'POST', headers: getAuthHeaders() }); } catch (e) {}
             checkSession();
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // 대시보드 초기화
+        // ═══════════════════════════════════════════════════════════
         function startDashboard() {
             refreshAll();
-            if (!refreshTimer) {
-                refreshTimer = setInterval(refreshAll, 5000);
-            }
+            if (!refreshTimer) refreshTimer = setInterval(refreshAll, 5000);
         }
 
         function refreshAll() {
@@ -450,8 +535,12 @@
             loadServers();
             loadApiKeys();
             loadAuditLogs();
+            // 도구 목록은 5초마다 자동 갱신하지 않음 — 수동/이벤트 기반으로만 갱신
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // 통계 카드
+        // ═══════════════════════════════════════════════════════════
         async function loadStats() {
             try {
                 const res = await fetch('/api/admin/stats');
@@ -460,12 +549,13 @@
                     document.getElementById('stat-total').innerText = data.totalRequests || 0;
                     document.getElementById('stat-success').innerText = (data.successRate || 100) + '%';
                     document.getElementById('stat-latency').innerText = (data.avgLatencyMs || 0) + ' ms';
-                } else if (res.status === 401) {
-                    checkSession();
-                }
+                } else if (res.status === 401) { checkSession(); }
             } catch (e) {}
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // 시스템 설정
+        // ═══════════════════════════════════════════════════════════
         async function loadSettings() {
             try {
                 const res = await fetch('/api/admin/settings');
@@ -484,9 +574,9 @@
             });
         }
 
-        let serversMap = {};
-        let allServersList = [];
-
+        // ═══════════════════════════════════════════════════════════
+        // 업스트림 서버 관리
+        // ═══════════════════════════════════════════════════════════
         async function loadServers() {
             try {
                 const res = await fetch('/api/admin/servers');
@@ -495,6 +585,14 @@
                     allServersList = servers;
                     document.getElementById('stat-servers').innerText = servers.length;
                     serversMap = {};
+
+                    // 도구 필터 서버 목록 동기화
+                    const filterSel = document.getElementById('tool-filter-server');
+                    const prevVal = filterSel.value;
+                    filterSel.innerHTML = '<option value="">— 전체 서버 —</option>' +
+                        servers.map(s => `<option value="${s.id}">${escapeHtml(s.name)} (${s.transportType})</option>`).join('');
+                    if (prevVal) filterSel.value = prevVal;
+
                     const tbody = document.getElementById('servers-table-body');
                     tbody.innerHTML = servers.map(s => {
                         serversMap[s.id] = s;
@@ -502,11 +600,12 @@
                         <tr>
                             <td><strong>${escapeHtml(s.name)}</strong></td>
                             <td><span class="badge badge-${s.transportType.toLowerCase()}">${s.transportType}</span></td>
-                            <td>${escapeHtml(s.transportType === 'HTTP' ? s.endpointUrl : s.commandLine)}</td>
-                            <td><span class="badge badge-${s.healthStatus.toLowerCase()}">${s.healthStatus}</span></td>
-                            <td>
-                                <button class="btn btn-secondary" style="margin-right: 5px; padding: 4px 8px; font-size: 0.8rem;" onclick="openServerModal('${s.id}')">수정</button>
-                                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;" onclick="deleteServer('${s.id}')">삭제</button>
+                            <td>${escapeHtml(s.transportType === 'HTTP' ? (s.endpointUrl || '') : (s.commandLine || ''))}</td>
+                            <td><span class="badge badge-${s.healthStatus ? s.healthStatus.toLowerCase() : 'down'}">${s.healthStatus || 'UNKNOWN'}</span></td>
+                            <td style="white-space:nowrap;">
+                                <button class="btn btn-success btn-sm" onclick="syncServerToolsFromDashboard('${s.id}', '${escapeHtml(s.name)}')" title="${escapeHtml(s.name)} 도구 새로고침">🔄</button>
+                                <button class="btn btn-secondary btn-sm" style="margin:0 4px;" onclick="openServerModal('${s.id}')">수정</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteServer('${s.id}')">삭제</button>
                             </td>
                         </tr>
                     `}).join('');
@@ -514,8 +613,159 @@
             } catch (e) {}
         }
 
-        let apiKeysMap = {};
+        // ═══════════════════════════════════════════════════════════
+        // 도구 레지스트리 — 수동 동기화 (Rule 1-②)
+        // ═══════════════════════════════════════════════════════════
 
+        /** 전체 서버 도구 동기화 */
+        async function syncAllToolsFromDashboard() {
+            const btn = document.getElementById('btn-sync-all');
+            btn.disabled = true;
+            showSyncStatus('sync-all-status', '🔄 전체 동기화 중...', 'loading');
+            try {
+                const res = await fetch('/api/admin/tools/sync', { method: 'POST', headers: getAuthHeaders() });
+                const data = await res.json();
+                if (res.ok && data.status === 'SUCCESS') {
+                    showSyncStatus('sync-all-status',
+                        `✅ 동기화 완료 — 업스트림: ${data.totalToolsSynced}개, 캐시: ${data.cachedEnabledTools}개 활성 (${new Date(data.syncedAt).toLocaleTimeString()})`,
+                        'ok');
+                    loadTools();
+                } else {
+                    showSyncStatus('sync-all-status', '❌ 동기화 실패: ' + (data.error || '알 수 없는 오류'), 'error');
+                }
+            } catch (e) {
+                showSyncStatus('sync-all-status', '❌ 통신 오류: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        /** 특정 서버 도구 동기화 */
+        async function syncServerToolsFromDashboard(serverId, serverName) {
+            showSyncStatus('tool-sync-status', `🔄 [${serverName}] 동기화 중...`, 'loading');
+            try {
+                const res = await fetch(`/api/admin/tools/sync/${serverId}`, { method: 'POST', headers: getAuthHeaders() });
+                const data = await res.json();
+                if (res.ok && data.status === 'SUCCESS') {
+                    showSyncStatus('tool-sync-status',
+                        `✅ [${serverName}] 완료 — ${data.toolsSynced}개 동기화, 캐시 활성: ${data.cachedEnabledTools}개`,
+                        'ok');
+                    loadTools();
+                } else {
+                    showSyncStatus('tool-sync-status', `❌ [${serverName}] 실패: ` + (data.error || ''), 'error');
+                }
+            } catch (e) {
+                showSyncStatus('tool-sync-status', '❌ 통신 오류: ' + e.message, 'error');
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // 도구 레지스트리 — 목록 로드 및 필터 (Rule 2, 3)
+        // ═══════════════════════════════════════════════════════════
+
+        async function loadTools() {
+            try {
+                const res = await fetch('/api/admin/tools');
+                if (!res.ok) return;
+                allToolsList = await res.json();
+                // 활성 도구 수 통계 갱신
+                document.getElementById('stat-tools').innerText =
+                    allToolsList.filter(t => t.isEnabled).length;
+                applyToolFilter();
+            } catch (e) {}
+        }
+
+        function applyToolFilter() {
+            const serverId  = document.getElementById('tool-filter-server').value;
+            const enabled   = document.getElementById('tool-filter-enabled').value;
+            const keyword   = (document.getElementById('tool-filter-keyword').value || '').toLowerCase();
+
+            const filtered = allToolsList.filter(t => {
+                if (serverId && String(t.serverId) !== serverId) return false;
+                if (enabled === 'true'  && !t.isEnabled) return false;
+                if (enabled === 'false' &&  t.isEnabled) return false;
+                if (keyword && !t.namespacedName.toLowerCase().includes(keyword) &&
+                    !(t.description || '').toLowerCase().includes(keyword)) return false;
+                return true;
+            });
+
+            renderToolsTable(filtered);
+        }
+
+        function renderToolsTable(tools) {
+            const tbody = document.getElementById('tools-table-body');
+            if (tools.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:24px;">조건에 맞는 도구가 없습니다.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = tools.map(t => {
+                const enabledBadge = t.isEnabled
+                    ? `<span class="badge badge-enabled">ON</span>`
+                    : `<span class="badge badge-disabled">OFF</span>`;
+                const desc = escapeHtml((t.description || '').substring(0, 80)) + ((t.description || '').length > 80 ? '…' : '');
+                const serverName = escapeHtml(t.serverName || '');
+                const syncBtn = `<button class="btn btn-secondary btn-sm" onclick="syncServerToolsFromDashboard('${t.serverId}','${serverName}')" title="${serverName} 전체 도구 새로고침">🔄</button>`;
+                return `
+                <tr>
+                    <td style="font-family:monospace; font-size:0.83rem;">${escapeHtml(t.namespacedName)}</td>
+                    <td><span class="badge badge-http">${serverName}</span></td>
+                    <td class="tool-desc" title="${escapeHtml(t.description || '')}">${desc || '<span style="color:var(--text-muted)">—</span>'}</td>
+                    <td style="text-align:center;">
+                        <div class="toggle-container" style="justify-content:center;">
+                            ${enabledBadge}
+                            <label class="switch" title="is_enabled 토글">
+                                <input type="checkbox" ${t.isEnabled ? 'checked' : ''}
+                                    onchange="toggleToolEnabled('${t.id}', this.checked, this)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </td>
+                    <td style="text-align:center;">${syncBtn}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        /**
+         * 도구 is_enabled 토글 — PATCH /api/admin/tools/{id}/enabled
+         * 서버 응답 후 캐시 evict + rebuild 완료.
+         */
+        async function toggleToolEnabled(toolId, isEnabled, checkboxEl) {
+            checkboxEl.disabled = true;
+            try {
+                const res = await fetch(`/api/admin/tools/${toolId}/enabled`, {
+                    method: 'PATCH',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ isEnabled })
+                });
+                if (res.ok) {
+                    // 로컬 캐시 업데이트 (리렌더링 최소화)
+                    const tool = allToolsList.find(t => String(t.id) === String(toolId));
+                    if (tool) tool.isEnabled = isEnabled;
+                    document.getElementById('stat-tools').innerText =
+                        allToolsList.filter(t => t.isEnabled).length;
+                    // 토글된 행의 badge만 갱신 (전체 리렌더링 없음)
+                    const badge = checkboxEl.closest('td').querySelector('.badge');
+                    if (badge) {
+                        badge.textContent = isEnabled ? 'ON' : 'OFF';
+                        badge.className = 'badge ' + (isEnabled ? 'badge-enabled' : 'badge-disabled');
+                    }
+                    showSyncStatus('tool-sync-status',
+                        `✅ 도구 [${toolId}] ${isEnabled ? '활성화' : '비활성화'} 완료 — 캐시 즉시 반영`, 'ok');
+                } else {
+                    checkboxEl.checked = !isEnabled; // 롤백
+                    showSyncStatus('tool-sync-status', '❌ 상태 변경 실패 (서버 오류)', 'error');
+                }
+            } catch (e) {
+                checkboxEl.checked = !isEnabled;
+                showSyncStatus('tool-sync-status', '❌ 통신 오류: ' + e.message, 'error');
+            } finally {
+                checkboxEl.disabled = false;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // API Key 관리
+        // ═══════════════════════════════════════════════════════════
         async function loadApiKeys() {
             try {
                 const res = await fetch('/api/admin/api-keys');
@@ -532,8 +782,8 @@
                             <td>${k.rateLimitPerMinute} 회/분</td>
                             <td>${new Date(k.createdAt).toLocaleString()}</td>
                             <td>
-                                <button class="btn btn-secondary" style="margin-right: 5px; padding: 4px 8px; font-size: 0.8rem;" onclick="openPermissionModal('${k.id}')">권한 관리</button>
-                                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;" onclick="deleteApiKey('${k.id}')">폐기</button>
+                                <button class="btn btn-secondary btn-sm" style="margin-right:5px;" onclick="openPermissionModal('${k.id}')">권한 관리</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteApiKey('${k.id}')">폐기</button>
                             </td>
                         </tr>
                     `}).join('');
@@ -541,6 +791,9 @@
             } catch (e) {}
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // 감사 로그
+        // ═══════════════════════════════════════════════════════════
         async function loadAuditLogs() {
             try {
                 const res = await fetch('/api/admin/audit-logs');
@@ -561,6 +814,9 @@
             } catch (e) {}
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // 서버 모달
+        // ═══════════════════════════════════════════════════════════
         function openServerModal(serverId = null) {
             if (serverId && serversMap[serverId]) {
                 const s = serversMap[serverId];
@@ -570,10 +826,10 @@
                 document.getElementById('srv-type').value = s.transportType;
                 document.getElementById('srv-url').value = s.endpointUrl || '';
                 document.getElementById('srv-cmd').value = s.commandLine || '';
-                document.getElementById('srv-failure-rate').value = s.failureRateThreshold !== undefined ? s.failureRateThreshold : 50.0;
-                document.getElementById('srv-sliding-window').value = s.slidingWindowSize !== undefined ? s.slidingWindowSize : 10;
-                document.getElementById('srv-min-calls').value = s.minimumNumberOfCalls !== undefined ? s.minimumNumberOfCalls : 5;
-                document.getElementById('srv-wait-duration').value = s.waitDurationInOpenState !== undefined ? s.waitDurationInOpenState : 10;
+                document.getElementById('srv-failure-rate').value   = s.failureRateThreshold   ?? 50.0;
+                document.getElementById('srv-sliding-window').value = s.slidingWindowSize       ?? 10;
+                document.getElementById('srv-min-calls').value      = s.minimumNumberOfCalls    ?? 5;
+                document.getElementById('srv-wait-duration').value  = s.waitDurationInOpenState ?? 10;
             } else {
                 document.getElementById('srv-modal-title').innerText = '업스트림 서버 등록';
                 document.getElementById('srv-id').value = '';
@@ -581,68 +837,57 @@
                 document.getElementById('srv-type').value = 'HTTP';
                 document.getElementById('srv-url').value = '';
                 document.getElementById('srv-cmd').value = '';
-                document.getElementById('srv-failure-rate').value = 50.0;
+                document.getElementById('srv-failure-rate').value   = 50.0;
                 document.getElementById('srv-sliding-window').value = 10;
-                document.getElementById('srv-min-calls').value = 5;
-                document.getElementById('srv-wait-duration').value = 10;
+                document.getElementById('srv-min-calls').value      = 5;
+                document.getElementById('srv-wait-duration').value  = 10;
             }
             toggleTransportFields();
             document.getElementById('serverModal').style.display = 'flex';
         }
 
         function closeServerModal() { document.getElementById('serverModal').style.display = 'none'; }
-        function openKeyModal() { document.getElementById('keyModal').style.display = 'flex'; }
-        function closeKeyModal() { document.getElementById('keyModal').style.display = 'none'; }
-
-        function closeKeyResultModal() {
-            document.getElementById('keyResultModal').style.display = 'none';
-        }
+        function openKeyModal()      { document.getElementById('keyModal').style.display = 'flex'; }
+        function closeKeyModal()     { document.getElementById('keyModal').style.display = 'none'; }
+        function closeKeyResultModal() { document.getElementById('keyResultModal').style.display = 'none'; }
 
         function copyRawApiKey() {
             const inputElem = document.getElementById('raw-key-output');
             inputElem.select();
-            inputElem.setSelectionRange(0, 99999); // 모바일/PC 호환용
-
+            inputElem.setSelectionRange(0, 99999);
             navigator.clipboard.writeText(inputElem.value).then(() => {
                 const btn = document.getElementById('copy-btn-action');
-                const originalText = btn.innerText;
+                const orig = btn.innerText;
                 btn.innerText = '복사 완료!';
                 btn.style.backgroundColor = 'var(--success-color)';
                 btn.style.color = '#000';
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                    btn.style.backgroundColor = '';
-                    btn.style.color = '';
-                }, 2000);
-            }).catch(err => {
-                alert('클립보드 복사에 실패했습니다. 수동으로 복사해주세요.');
-            });
+                setTimeout(() => { btn.innerText = orig; btn.style.backgroundColor = ''; btn.style.color = ''; }, 2000);
+            }).catch(() => { alert('클립보드 복사에 실패했습니다. 수동으로 복사해주세요.'); });
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // 권한 모달
+        // ═══════════════════════════════════════════════════════════
         async function openPermissionModal(keyId) {
             const key = apiKeysMap[keyId];
             document.getElementById('perm-key-id').value = keyId;
             if (key) {
                 if (key.masterKey) {
-                    document.getElementById('perm-key-info').innerHTML = `<strong>API Key:</strong> ${escapeHtml(key.keyName)} <span class="badge badge-stdio">마스터 Key (모든 도구 무제한 접근 권한 부여됨)</span>`;
+                    document.getElementById('perm-key-info').innerHTML = `<strong>API Key:</strong> ${escapeHtml(key.keyName)} <span class="badge badge-stdio">마스터 Key (모든 도구 무제한)</span>`;
                 } else {
                     document.getElementById('perm-key-info').innerHTML = `<strong>API Key:</strong> ${escapeHtml(key.keyName)} <span class="badge badge-http">일반 Key</span>`;
                 }
             } else {
                 document.getElementById('perm-key-info').innerText = `API Key: ${keyId}`;
             }
-
             const select = document.getElementById('perm-server-select');
             select.innerHTML = allServersList.map(s => `<option value="${s.id}">${escapeHtml(s.name)} (${s.transportType})</option>`).join('');
             document.getElementById('perm-tools-input').value = '*';
-
             loadPermissionsTable(keyId);
             document.getElementById('permissionModal').style.display = 'flex';
         }
 
-        function closePermissionModal() {
-            document.getElementById('permissionModal').style.display = 'none';
-        }
+        function closePermissionModal() { document.getElementById('permissionModal').style.display = 'none'; }
 
         async function loadPermissionsTable(keyId) {
             try {
@@ -651,64 +896,49 @@
                     const perms = await res.json();
                     const tbody = document.getElementById('perm-table-body');
                     if (perms.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">등록된 도구 권한이 없습니다. (기본 거부)</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">등록된 도구 권한이 없습니다. (기본 거부)</td></tr>`;
                         return;
                     }
                     tbody.innerHTML = perms.map(p => {
                         const srv = allServersList.find(s => s.id === p.serverId);
-                        const srvName = srv ? srv.name : p.serverId;
-                        return `
-                        <tr>
-                            <td><strong>${escapeHtml(srvName)}</strong></td>
+                        return `<tr>
+                            <td><strong>${escapeHtml(srv ? srv.name : p.serverId)}</strong></td>
                             <td><code>${escapeHtml(p.allowedToolsJson)}</code></td>
-                            <td><button class="btn btn-danger" style="padding: 2px 6px; font-size: 0.75rem;" onclick="deletePermission('${keyId}', '${p.serverId}')">삭제</button></td>
-                        </tr>
-                    `}).join('');
+                            <td><button class="btn btn-danger btn-sm" onclick="deletePermission('${keyId}','${p.serverId}')">삭제</button></td>
+                        </tr>`;
+                    }).join('');
                 }
             } catch (e) {}
         }
 
         async function savePermission() {
-            const keyId = document.getElementById('perm-key-id').value;
+            const keyId    = document.getElementById('perm-key-id').value;
             const serverId = document.getElementById('perm-server-select').value;
             const toolsStr = document.getElementById('perm-tools-input').value;
-
-            if (!serverId) {
-                alert("선택된 서버가 없습니다.");
-                return;
-            }
-
+            if (!serverId) { alert('선택된 서버가 없습니다.'); return; }
             const res = await fetch(`/api/admin/api-keys/${keyId}/permissions`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({
-                    serverId: serverId,
-                    allowedTools: toolsStr
-                })
+                body: JSON.stringify({ serverId, allowedTools: toolsStr })
             });
-
-            if (res.ok) {
-                loadPermissionsTable(keyId);
-            } else {
-                alert("권한 저장에 실패했습니다.");
-            }
+            if (res.ok) { loadPermissionsTable(keyId); } else { alert('권한 저장에 실패했습니다.'); }
         }
 
         async function deletePermission(keyId, serverId) {
-            if (confirm("이 서버에 대한 도구 권한을 삭제하시겠습니까?")) {
+            if (confirm('이 서버에 대한 도구 권한을 삭제하시겠습니까?')) {
                 const res = await fetch(`/api/admin/api-keys/${keyId}/permissions/${serverId}`, {
-                    method: 'DELETE',
-                    headers: getAuthHeaders()
+                    method: 'DELETE', headers: getAuthHeaders()
                 });
-                if (res.ok) {
-                    loadPermissionsTable(keyId);
-                }
+                if (res.ok) loadPermissionsTable(keyId);
             }
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // 서버 CRUD
+        // ═══════════════════════════════════════════════════════════
         function toggleTransportFields() {
             const type = document.getElementById('srv-type').value;
-            document.getElementById('grp-http').style.display = type === 'HTTP' ? 'block' : 'none';
+            document.getElementById('grp-http').style.display  = type === 'HTTP'  ? 'block' : 'none';
             document.getElementById('grp-stdio').style.display = type === 'STDIO' ? 'block' : 'none';
         }
 
@@ -719,73 +949,65 @@
                 transportType: document.getElementById('srv-type').value,
                 endpointUrl: document.getElementById('srv-url').value,
                 commandLine: document.getElementById('srv-cmd').value,
-                failureRateThreshold: parseFloat(document.getElementById('srv-failure-rate').value),
-                slidingWindowSize: parseInt(document.getElementById('srv-sliding-window').value),
-                minimumNumberOfCalls: parseInt(document.getElementById('srv-min-calls').value),
-                waitDurationInOpenState: parseInt(document.getElementById('srv-wait-duration').value),
+                failureRateThreshold:   parseFloat(document.getElementById('srv-failure-rate').value),
+                slidingWindowSize:      parseInt(document.getElementById('srv-sliding-window').value),
+                minimumNumberOfCalls:   parseInt(document.getElementById('srv-min-calls').value),
+                waitDurationInOpenState:parseInt(document.getElementById('srv-wait-duration').value),
                 enabled: true
             };
-            const url = id ? `/api/admin/servers/${id}` : '/api/admin/servers';
+            const url    = id ? `/api/admin/servers/${id}` : '/api/admin/servers';
             const method = id ? 'PUT' : 'POST';
+            const res = await fetch(url, { method, headers: getAuthHeaders(), body: JSON.stringify(body) });
+            if (res.ok) { closeServerModal(); loadServers(); }
+            else { alert(await res.text()); }
+        }
 
-            const res = await fetch(url, {
-                method: method,
-                headers: getAuthHeaders(),
-                body: JSON.stringify(body)
-            });
-            if (res.ok) {
-                closeServerModal();
+        async function deleteServer(id) {
+            if (confirm('이 서버 설정을 삭제하시겠습니까?')) {
+                await fetch('/api/admin/servers/' + id, { method: 'DELETE', headers: getAuthHeaders() });
                 loadServers();
-            } else {
-                alert(await res.text());
+                loadTools(); // 도구 목록도 갱신
             }
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // API Key CRUD
+        // ═══════════════════════════════════════════════════════════
         async function saveApiKey() {
             const body = {
-                keyName: document.getElementById('key-name').value,
-                masterKey: document.getElementById('key-master').value === 'true',
+                keyName:            document.getElementById('key-name').value,
+                masterKey:          document.getElementById('key-master').value === 'true',
                 rateLimitPerMinute: parseInt(document.getElementById('key-ratelimit').value)
             };
             const res = await fetch('/api/admin/api-keys', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(body)
+                method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(body)
             });
             if (res.ok) {
                 const data = await res.json();
                 closeKeyModal();
                 loadApiKeys();
-
-                // 기존 alert 대신 레이어 팝업에 키 주입 후 표시
                 document.getElementById('raw-key-output').value = data.rawApiKey;
                 document.getElementById('keyResultModal').style.display = 'flex';
             }
         }
 
-        async function deleteServer(id) {
-            if (confirm("이 서버 설정을 삭제하시겠습니까?")) {
-                await fetch('/api/admin/servers/' + id, {
-                    method: 'DELETE',
-                    headers: getAuthHeaders()
-                });
-                loadServers();
-            }
-        }
-
         async function deleteApiKey(id) {
-            if (confirm("이 API Key를 폐기하시겠습니까?")) {
-                await fetch('/api/admin/api-keys/' + id, {
-                    method: 'DELETE',
-                    headers: getAuthHeaders()
-                });
+            if (confirm('이 API Key를 폐기하시겠습니까?')) {
+                await fetch('/api/admin/api-keys/' + id, { method: 'DELETE', headers: getAuthHeaders() });
                 loadApiKeys();
             }
         }
 
-        function escapeHtml(str) {
-            return str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
-        }
+        // ═══════════════════════════════════════════════════════════
+        // 도구 레지스트리: 대시보드 진입 시 초기 로드
+        // ═══════════════════════════════════════════════════════════
+        // startDashboard() 이후 첫 loadServers() 완료 시 도구 로드
+        const _origStartDashboard = startDashboard;
+        startDashboard = function() {
+            _origStartDashboard();
+            // 최초 로드 시 도구 목록도 가져옴
+            setTimeout(loadTools, 800);
+        };
     </script>
 </body>
 </html>

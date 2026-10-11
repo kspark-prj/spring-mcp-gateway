@@ -4,6 +4,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.domain.Persistable;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.mcp.gateway.config.TsidConfig;
 
 
@@ -18,6 +20,7 @@ import com.mcp.gateway.config.TsidConfig;
 public abstract class BaseTsidEntity implements Persistable<Long> {
 
     @Id
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     @Transient

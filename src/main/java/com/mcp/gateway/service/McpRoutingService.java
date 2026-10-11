@@ -141,11 +141,8 @@ public class McpRoutingService {
     }
 
     private boolean isServerSpecificMethod(String method) {
-       // return "tools/call".equals(method) || "resources/read".equals(method) || "prompts/get".equals(method);
-    	 return "tools/call".equals(method) ;
+        return "tools/call".equals(method);
     }
-
-
 
     private void recordAuditLog(String requestId, Long apiKeyId, Long serverId, String toolName,
                                  String rawPayload, JsonRpcResponse response, long executionTimeMs) {
@@ -182,11 +179,6 @@ public class McpRoutingService {
         return request.getMethod();
     }
 
-    private Long extractServerId(JsonRpcRequest request) {
-        // Can be resolved dynamically if needed, returns null if global
-        return null;
-    }
-
     private Mono<JsonRpcResponse> handleInitialize(JsonRpcRequest request) {
         Map<String, Object> result = Map.of(
                 "protocolVersion", "2024-11-05",
@@ -200,17 +192,20 @@ public class McpRoutingService {
         return Mono.just(JsonRpcResponse.success(request.getId(), result));
     }
 
+    /**
+     * tools/list 처리: Caffeine 캐시 우선, is_enabled=true 도구만 노출 (Rule 2, 3).
+     * DB 조회 없이 캐시에서 필터링 후 API Key 권한 검증.
+     * serverId를 엔티티에서 직접 획득하므로 DB findByName() 조회 불필요.
+     */
     private Mono<JsonRpcResponse> handleToolsList(JsonRpcRequest request, McpApiKeyEntity apiKey) {
-        return toolRegistryService.getUnifiedToolCatalog()
-                .flatMap(allTools -> Flux.fromIterable(allTools)
-                        .flatMap(tool -> {
-                            String serverName = (String) tool.get("serverName");
-                            String originalName = (String) tool.get("originalName");
-                            return serverRepository.findByName(serverName)
-                                    .flatMap(server -> apiKeyPermissionService.isToolAllowed(apiKey, server.getId(), originalName))
-                                    .filter(Boolean::booleanValue)
-                                    .map(allowed -> tool);
-                        })
+        return toolRegistryService.getEnabledToolEntities()
+                .flatMap(enabledTools -> Flux.fromIterable(enabledTools)
+                        .flatMap(tool ->
+                                // API Key 권한 검증 (serverId는 McpToolsEntity에서 직접 획득)
+                                apiKeyPermissionService.isToolAllowed(apiKey, tool.getServerId(), tool.getToolName())
+                                        .filter(Boolean::booleanValue)
+                                        .map(allowed -> toolRegistryService.toToolMap(tool))
+                        )
                         .collectList()
                         .map(allowedTools -> JsonRpcResponse.success(request.getId(), Map.of("tools", allowedTools))));
     }
@@ -304,6 +299,15 @@ public class McpRoutingService {
                 });
     }
 
+    /**
+     * tools/call 처리.
+     * <ol>
+     *   <li>서버 enabled 확인</li>
+     *   <li>Rule 3: is_enabled=false 도구 호출 즉시 차단 (캐시 우선 조회)</li>
+     *   <li>API Key 권한 검증</li>
+     *   <li>업스트림 디스패치</li>
+     * </ol>
+     */
     @SuppressWarnings("unchecked")
     private Mono<JsonRpcResponse> handleToolsCall(JsonRpcRequest request, McpApiKeyEntity apiKey) {
         long startTime = System.currentTimeMillis();
@@ -334,37 +338,51 @@ public class McpRoutingService {
         return serverRepository.findByName(serverName)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Target MCP Server not found: " + serverName)))
                 .flatMap(server -> {
-                    Long serverId = server.getId(); // <-- 여기서 정확한 TSID Long 서버 ID 획득!
+                    Long serverId = server.getId();
 
+                    // 1. 서버 자체 비활성화 확인
                     if (Boolean.FALSE.equals(server.getEnabled())) {
                         JsonRpcResponse err = JsonRpcResponse.error(request.getId(), JsonRpcError.SERVER_ERROR, "Target MCP Server is disabled");
                         recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, err, System.currentTimeMillis() - startTime);
                         return Mono.just(err);
                     }
 
-                    return apiKeyPermissionService.isToolAllowed(apiKey, serverId, originalToolName)
-                            .flatMap(allowed -> {
-                                if (!allowed) {
-                                    JsonRpcResponse err = JsonRpcResponse.error(request.getId(), JsonRpcError.UNAUTHORIZED, "API Key unauthorized for tool: " + namespacedToolName);
+                    // 2. Rule 3: is_enabled=false 도구 호출 즉시 차단 (캐시 우선 조회)
+                    return toolRegistryService.isToolEnabled(namespacedToolName)
+                            .flatMap(toolEnabled -> {
+                                if (!toolEnabled) {
+                                    log.warn("🚫 [ToolCall] Tool [{}] is disabled (is_enabled=false). Call blocked.", namespacedToolName);
+                                    JsonRpcResponse err = JsonRpcResponse.error(request.getId(), JsonRpcError.SERVER_ERROR,
+                                            "Tool is disabled by administrator: " + namespacedToolName);
                                     recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, err, System.currentTimeMillis() - startTime);
                                     return Mono.just(err);
                                 }
 
-                                Map<String, Object> upstreamParams = new HashMap<>(params != null ? params : Map.of());
-                                upstreamParams.put("name", originalToolName);
+                                // 3. API Key 권한 검증
+                                return apiKeyPermissionService.isToolAllowed(apiKey, serverId, originalToolName)
+                                        .flatMap(allowed -> {
+                                            if (!allowed) {
+                                                JsonRpcResponse err = JsonRpcResponse.error(request.getId(), JsonRpcError.UNAUTHORIZED, "API Key unauthorized for tool: " + namespacedToolName);
+                                                recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, err, System.currentTimeMillis() - startTime);
+                                                return Mono.just(err);
+                                            }
 
-                                Map<String, Object> upstreamRequestMap = Map.of(
-                                        "jsonrpc", "2.0",
-                                        "id", request.getId() != null ? request.getId() : UUID.randomUUID().toString(),
-                                        "method", "tools/call",
-                                        "params", upstreamParams
-                                );
+                                            // 4. 업스트림 디스패치
+                                            Map<String, Object> upstreamParams = new HashMap<>(params != null ? params : Map.of());
+                                            upstreamParams.put("name", originalToolName);
 
-                                return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap)
-                                        .doOnNext(response -> {
-                                            // 정상/에러 응답 완료 시 정확한 serverId를 포함하여 감사 로그 기록
-                                            long executionTimeMs = System.currentTimeMillis() - startTime;
-                                            recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, response, executionTimeMs);
+                                            Map<String, Object> upstreamRequestMap = Map.of(
+                                                    "jsonrpc", "2.0",
+                                                    "id", request.getId() != null ? request.getId() : UUID.randomUUID().toString(),
+                                                    "method", "tools/call",
+                                                    "params", upstreamParams
+                                            );
+
+                                            return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap)
+                                                    .doOnNext(response -> {
+                                                        long executionTimeMs = System.currentTimeMillis() - startTime;
+                                                        recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, response, executionTimeMs);
+                                                    });
                                         });
                             });
                 })
