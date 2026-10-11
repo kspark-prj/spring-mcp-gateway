@@ -1,12 +1,15 @@
 package com.mcp.gateway.dto.jsonrpc;
 
+import java.util.Map;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 
-import java.util.Map;
+import lombok.ToString;
 
 /**
  * Standard JSON-RPC 2.0 Request DTO for Model Context Protocol (MCP) communications.
  */
+@ToString
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class JsonRpcRequest {
 

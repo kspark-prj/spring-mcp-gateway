@@ -1,17 +1,26 @@
 package com.mcp.gateway.controller.admin;
 
-import com.mcp.gateway.domain.McpApiKeyEntity;
-import com.mcp.gateway.repository.McpApiKeyRepository;
-import com.mcp.gateway.service.ApiKeyPermissionService;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.github.f4b6a3.tsid.Tsid;
+import com.mcp.gateway.domain.McpApiKeyEntity;
+import com.mcp.gateway.repository.McpApiKeyRepository;
+import com.mcp.gateway.service.ApiKeyPermissionService;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Controller for Administrator management of Client API Keys and access permissions.
@@ -65,24 +74,24 @@ public class AdminApiKeyController {
     }
 
     @DeleteMapping("/{id}")
-    public Mono<ResponseEntity<Void>> deleteApiKey(@PathVariable UUID id) {
+    public Mono<ResponseEntity<Void>> deleteApiKey(@PathVariable Long id) {
         return apiKeyRepository.deleteById(id).then(Mono.just(ResponseEntity.noContent().build()));
     }
 
     @GetMapping("/{id}/permissions")
-    public Flux<com.mcp.gateway.domain.McpKeyServerPermissionEntity> getPermissions(@PathVariable UUID id) {
+    public Flux<com.mcp.gateway.domain.McpKeyServerPermissionEntity> getPermissions(@PathVariable Long id) {
         return apiKeyPermissionService.getPermissionsForApiKey(id);
     }
 
     @PostMapping("/{id}/permissions")
     public Mono<ResponseEntity<com.mcp.gateway.domain.McpKeyServerPermissionEntity>> savePermission(
-            @PathVariable UUID id,
+            @PathVariable Long id,
             @RequestBody Map<String, Object> req) {
         String serverIdStr = (String) req.get("serverId");
         if (serverIdStr == null || serverIdStr.isBlank()) {
             return Mono.just(ResponseEntity.badRequest().build());
         }
-        UUID serverId = UUID.fromString(serverIdStr);
+        long serverId = Tsid.from(serverIdStr).toLong();
 
         Object allowedToolsObj = req.get("allowedTools");
         java.util.List<String> allowedTools = java.util.Collections.emptyList();
@@ -101,8 +110,8 @@ public class AdminApiKeyController {
 
     @DeleteMapping("/{id}/permissions/{serverId}")
     public Mono<ResponseEntity<Void>> deletePermission(
-            @PathVariable UUID id,
-            @PathVariable UUID serverId) {
+            @PathVariable Long id,
+            @PathVariable Long serverId) {
         return apiKeyPermissionService.deletePermission(id, serverId)
                 .then(Mono.just(ResponseEntity.noContent().build()));
     }

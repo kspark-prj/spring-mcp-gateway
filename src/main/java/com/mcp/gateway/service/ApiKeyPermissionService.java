@@ -1,27 +1,28 @@
 package com.mcp.gateway.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.mcp.gateway.domain.McpApiKeyEntity;
-import com.mcp.gateway.repository.McpApiKeyRepository;
-import com.mcp.gateway.repository.McpKeyServerPermissionRepository;
-import com.mcp.gateway.domain.McpKeyServerPermissionEntity;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.mcp.gateway.domain.McpApiKeyEntity;
+import com.mcp.gateway.domain.McpKeyServerPermissionEntity;
+import com.mcp.gateway.repository.McpApiKeyRepository;
+import com.mcp.gateway.repository.McpKeyServerPermissionRepository;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Service managing client API key authentication, SHA-256 fingerprint verification,
@@ -38,7 +39,7 @@ public class ApiKeyPermissionService {
     private final ObjectMapper objectMapper;
 
     // Lightweight In-Memory Token Bucket / Rate Limiter per API Key ID (keyId -> window reset timestamp & count)
-    private final ConcurrentHashMap<UUID, RateLimitCounter> rateLimitMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, RateLimitCounter> rateLimitMap = new ConcurrentHashMap<>();
 
     public ApiKeyPermissionService(McpApiKeyRepository apiKeyRepository,
                                  McpKeyServerPermissionRepository permissionRepository,
@@ -141,7 +142,7 @@ public class ApiKeyPermissionService {
      * @param toolName target tool name (un-namespaced or namespaced)
      * @return Mono emitting true if access is granted
      */
-    public Mono<Boolean> isToolAllowed(McpApiKeyEntity apiKey, UUID serverId, String toolName) {
+    public Mono<Boolean> isToolAllowed(McpApiKeyEntity apiKey, Long serverId, String toolName) {
         if (apiKey == null) {
             return Mono.just(false);
         }
@@ -170,7 +171,7 @@ public class ApiKeyPermissionService {
     /**
      * Retrieves all server/tool permission mappings for a specified API Key.
      */
-    public Flux<McpKeyServerPermissionEntity> getPermissionsForApiKey(UUID apiKeyId) {
+    public Flux<McpKeyServerPermissionEntity> getPermissionsForApiKey(Long apiKeyId) {
         return permissionRepository.findByApiKeyId(apiKeyId);
     }
 
@@ -182,7 +183,7 @@ public class ApiKeyPermissionService {
      * @param allowedTools List of allowed tool names (or "*" for wildcard)
      * @return Mono emitting saved permission entity
      */
-    public Mono<McpKeyServerPermissionEntity> saveOrUpdatePermission(UUID apiKeyId, UUID serverId, List<String> allowedTools) {
+    public Mono<McpKeyServerPermissionEntity> saveOrUpdatePermission(Long apiKeyId, Long serverId, List<String> allowedTools) {
         if (apiKeyId == null || serverId == null) {
             return Mono.error(new IllegalArgumentException("apiKeyId and serverId must not be null"));
         }
@@ -213,7 +214,7 @@ public class ApiKeyPermissionService {
     /**
      * Deletes permission mapping for an API key on a specific server.
      */
-    public Mono<Void> deletePermission(UUID apiKeyId, UUID serverId) {
+    public Mono<Void> deletePermission(Long apiKeyId, Long serverId) {
         return permissionRepository.deleteByApiKeyIdAndServerId(apiKeyId, serverId);
     }
 

@@ -1,31 +1,25 @@
 package com.mcp.gateway.domain;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.Transient;
-import org.springframework.data.domain.Persistable;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.Instant;
-import java.util.UUID;
 
 /**
  * Entity representing execution audit logs for gateway traffic monitoring and security analysis.
+ * Uses TSID(Long) primary key via {@link BaseTsidEntity}. FK references also use Long.
  */
 @Table("mcp_audit_logs")
-public class McpAuditLogEntity implements Persistable<UUID> {
-
-    @Id
-    private UUID id;
+public class McpAuditLogEntity extends BaseTsidEntity {
 
     @Column("request_id")
     private String requestId;
 
     @Column("api_key_id")
-    private UUID apiKeyId;
+    private Long apiKeyId;
 
     @Column("server_id")
-    private UUID serverId;
+    private Long serverId;
 
     @Column("tool_name")
     private String toolName;
@@ -51,17 +45,14 @@ public class McpAuditLogEntity implements Persistable<UUID> {
     @Column("created_at")
     private Instant createdAt;
 
-    @Transient
-    private boolean isNew = false;
-
     public McpAuditLogEntity() {
     }
 
-    public McpAuditLogEntity(UUID id, String requestId, UUID apiKeyId, UUID serverId,
+    public McpAuditLogEntity(Long id, String requestId, Long apiKeyId, Long serverId,
                              String toolName, String httpMethod, String requestPayload,
                              Integer responseStatus, Long executionTimeMs, Boolean piiMasked,
                              String errorMessage, Instant createdAt) {
-        this.id = id;
+        setId(id);
         this.requestId = requestId;
         this.apiKeyId = apiKeyId;
         this.serverId = serverId;
@@ -75,24 +66,6 @@ public class McpAuditLogEntity implements Persistable<UUID> {
         this.createdAt = createdAt;
     }
 
-    @Override
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    @Override
-    public boolean isNew() {
-        return isNew || id == null;
-    }
-
-    public void setNew(boolean isNew) {
-        this.isNew = isNew;
-    }
-
     public String getRequestId() {
         return requestId;
     }
@@ -101,19 +74,19 @@ public class McpAuditLogEntity implements Persistable<UUID> {
         this.requestId = requestId;
     }
 
-    public UUID getApiKeyId() {
+    public Long getApiKeyId() {
         return apiKeyId;
     }
 
-    public void setApiKeyId(UUID apiKeyId) {
+    public void setApiKeyId(Long apiKeyId) {
         this.apiKeyId = apiKeyId;
     }
 
-    public UUID getServerId() {
+    public Long getServerId() {
         return serverId;
     }
 
-    public void setServerId(UUID serverId) {
+    public void setServerId(Long serverId) {
         this.serverId = serverId;
     }
 

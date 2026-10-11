@@ -25,11 +25,12 @@ spring:
 mcp:
   gateway:
     master-key: "mcp-gateway-master-key-2026"
+    tsid:
+      node-id: ${TSID_NODE_ID:0} # 환경변수가 없으면 기본값 0 사용 (클러스터 모드 시 인스턴스별 고유값 필수)
     admin:
       username: "admin"
       password: "admin1"
     cache:
-      ttl-seconds: 60
       maximum-size: 2000
     upstream:
       read-timeout-ms: 30000

@@ -1,28 +1,23 @@
 package com.mcp.gateway.domain;
 
-import org.springframework.data.annotation.Id;
+import java.time.Instant;
+
 import org.springframework.data.annotation.Transient;
-import org.springframework.data.domain.Persistable;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
-
-import java.time.Instant;
-import java.util.UUID;
 
 /**
  * Entity mapping API Key to server and allowed tools authorization rules.
  */
 @Table("mcp_key_server_permissions")
-public class McpKeyServerPermissionEntity implements Persistable<UUID> {
+public class McpKeyServerPermissionEntity extends BaseTsidEntity {
 
-    @Id
-    private UUID id;
 
     @Column("api_key_id")
-    private UUID apiKeyId;
+    private Long apiKeyId;
 
     @Column("server_id")
-    private UUID serverId;
+    private Long serverId;
 
     @Column("allowed_tools_json")
     private String allowedToolsJson;
@@ -36,45 +31,28 @@ public class McpKeyServerPermissionEntity implements Persistable<UUID> {
     public McpKeyServerPermissionEntity() {
     }
 
-    public McpKeyServerPermissionEntity(UUID id, UUID apiKeyId, UUID serverId, String allowedToolsJson, Instant createdAt) {
-        this.id = id;
+    public McpKeyServerPermissionEntity(Long id, Long apiKeyId, Long serverId, String allowedToolsJson, Instant createdAt) {
+    	 setId(id);
         this.apiKeyId = apiKeyId;
         this.serverId = serverId;
         this.allowedToolsJson = allowedToolsJson;
         this.createdAt = createdAt;
     }
 
-    @Override
-    public UUID getId() {
-        return id;
-    }
 
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    @Override
-    public boolean isNew() {
-        return isNew || id == null;
-    }
-
-    public void setNew(boolean isNew) {
-        this.isNew = isNew;
-    }
-
-    public UUID getApiKeyId() {
+    public Long getApiKeyId() {
         return apiKeyId;
     }
 
-    public void setApiKeyId(UUID apiKeyId) {
+    public void setApiKeyId(Long apiKeyId) {
         this.apiKeyId = apiKeyId;
     }
 
-    public UUID getServerId() {
+    public Long getServerId() {
         return serverId;
     }
 
-    public void setServerId(UUID serverId) {
+    public void setServerId(Long serverId) {
         this.serverId = serverId;
     }
 

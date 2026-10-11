@@ -1,28 +1,30 @@
 package com.mcp.gateway.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.mcp.gateway.domain.McpApiKeyEntity;
-import com.mcp.gateway.domain.McpKeyServerPermissionEntity;
-import com.mcp.gateway.repository.McpApiKeyRepository;
-import com.mcp.gateway.repository.McpKeyServerPermissionRepository;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Instant;
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import reactor.core.publisher.Flux;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.mcp.gateway.config.TsidConfig;
+import com.mcp.gateway.domain.McpApiKeyEntity;
+import com.mcp.gateway.domain.McpKeyServerPermissionEntity;
+import com.mcp.gateway.repository.McpApiKeyRepository;
+import com.mcp.gateway.repository.McpKeyServerPermissionRepository;
+
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 class ApiKeyPermissionServiceTest {
 
@@ -56,11 +58,11 @@ class ApiKeyPermissionServiceTest {
     @DisplayName("Master API key grants unrestricted tool execution access")
     void testMasterKeyToolAccess() {
         McpApiKeyEntity masterKey = new McpApiKeyEntity();
-        masterKey.setId(UUID.randomUUID());
+        masterKey.setId(TsidConfig.nextLong());
         masterKey.setMasterKey(true);
         masterKey.setEnabled(true);
 
-        StepVerifier.create(service.isToolAllowed(masterKey, UUID.randomUUID(), "any__tool"))
+        StepVerifier.create(service.isToolAllowed(masterKey, TsidConfig.nextLong(), "any__tool"))
                 .expectNext(true)
                 .verifyComplete();
     }
@@ -68,8 +70,8 @@ class ApiKeyPermissionServiceTest {
     @Test
     @DisplayName("Non-master key grants access to specific allowed tools and denies unlisted tools")
     void testSpecificToolPermissionAllowedAndDenied() {
-        UUID keyId = UUID.randomUUID();
-        UUID serverId = UUID.randomUUID();
+        Long keyId = TsidConfig.nextLong();
+        Long serverId = TsidConfig.nextLong();
 
         McpApiKeyEntity key = new McpApiKeyEntity();
         key.setId(keyId);
@@ -77,7 +79,7 @@ class ApiKeyPermissionServiceTest {
         key.setEnabled(true);
 
         McpKeyServerPermissionEntity perm = new McpKeyServerPermissionEntity(
-                UUID.randomUUID(), keyId, serverId, "[\"get_weather\", \"search\"]", Instant.now()
+        		TsidConfig.nextLong(), keyId, serverId, "[\"get_weather\", \"search\"]", Instant.now()
         );
 
         when(permissionRepository.findByApiKeyIdAndServerId(keyId, serverId)).thenReturn(Mono.just(perm));
@@ -94,8 +96,8 @@ class ApiKeyPermissionServiceTest {
     @Test
     @DisplayName("saveOrUpdatePermission creates new permission if not existing, or updates if present")
     void testSaveOrUpdatePermission() {
-        UUID keyId = UUID.randomUUID();
-        UUID serverId = UUID.randomUUID();
+        Long keyId = TsidConfig.nextLong();
+        Long serverId = TsidConfig.nextLong();
 
         when(permissionRepository.findByApiKeyIdAndServerId(keyId, serverId)).thenReturn(Mono.empty());
         when(permissionRepository.save(any(McpKeyServerPermissionEntity.class)))
@@ -114,8 +116,8 @@ class ApiKeyPermissionServiceTest {
     @Test
     @DisplayName("deletePermission calls repository deleteByApiKeyIdAndServerId")
     void testDeletePermission() {
-        UUID keyId = UUID.randomUUID();
-        UUID serverId = UUID.randomUUID();
+        Long keyId = TsidConfig.nextLong();
+        Long serverId = TsidConfig.nextLong();
 
         when(permissionRepository.deleteByApiKeyIdAndServerId(keyId, serverId)).thenReturn(Mono.empty());
 

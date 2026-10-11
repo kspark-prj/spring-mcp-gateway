@@ -1,22 +1,16 @@
 package com.mcp.gateway.domain;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.Transient;
-import org.springframework.data.domain.Persistable;
+import java.time.Instant;
+
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
-import java.time.Instant;
-import java.util.UUID;
-
 /**
  * Entity representing an administrator user account for web dashboard access.
+ * Uses TSID(Long) primary key via {@link BaseTsidEntity}.
  */
 @Table("mcp_admin_users")
-public class McpAdminUserEntity implements Persistable<UUID> {
-
-    @Id
-    private UUID id;
+public class McpAdminUserEntity extends BaseTsidEntity {
 
     @Column("username")
     private String username;
@@ -33,37 +27,16 @@ public class McpAdminUserEntity implements Persistable<UUID> {
     @Column("updated_at")
     private Instant updatedAt;
 
-    @Transient
-    private boolean isNew = false;
-
     public McpAdminUserEntity() {
     }
 
-    public McpAdminUserEntity(UUID id, String username, String passwordHash, String role, Instant createdAt, Instant updatedAt) {
-        this.id = id;
+    public McpAdminUserEntity(Long id, String username, String passwordHash, String role, Instant createdAt, Instant updatedAt) {
+        setId(id);
         this.username = username;
         this.passwordHash = passwordHash;
         this.role = role;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
-    }
-
-    @Override
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    @Override
-    public boolean isNew() {
-        return isNew || id == null;
-    }
-
-    public void setNew(boolean isNew) {
-        this.isNew = isNew;
     }
 
     public String getUsername() {
@@ -105,4 +78,5 @@ public class McpAdminUserEntity implements Persistable<UUID> {
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
+
 }

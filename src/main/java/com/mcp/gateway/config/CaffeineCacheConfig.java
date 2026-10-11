@@ -1,14 +1,15 @@
 package com.mcp.gateway.config;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.mcp.gateway.domain.McpApiKeyEntity;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.mcp.gateway.domain.McpApiKeyEntity;
 
 /**
  * In-Memory Caffeine Cache Configuration.
@@ -38,7 +39,6 @@ public class CaffeineCacheConfig {
     @Bean
     public Cache<String, List<Map<String, Object>>> toolRegistryCache() {
         return Caffeine.newBuilder()
-                .expireAfterWrite(Duration.ofSeconds(30))
                 .maximumSize(2000)
                 .recordStats()
                 .build();

@@ -71,7 +71,7 @@ public class McpRoutingService {
 
     public Mono<JsonRpcResponse> routeRequest(JsonRpcRequest request, McpApiKeyEntity apiKey) {
         long startTime = System.currentTimeMillis();
-        UUID apiKeyId = apiKey != null ? apiKey.getId() : null;
+        Long apiKeyId = apiKey != null ? apiKey.getId() : null;
         String requestIdStr = request != null && request.getId() != null ? String.valueOf(request.getId()) : null;
 
         String rawPayload = null;
@@ -133,11 +133,21 @@ public class McpRoutingService {
         return responseMono.doOnNext(response -> {
             long executionTimeMs = System.currentTimeMillis() - startTime;
             String toolName = extractToolOrResourceName(request);
-            recordAuditLog(requestIdStr, apiKeyId, extractServerId(request), toolName, finalPayload, response, executionTimeMs);
+            // 글로벌 요청이거나 서버 특정 요청이 아닌 경우에만 여기서 기록
+            if (!isServerSpecificMethod(method)) {
+                recordAuditLog(requestIdStr, apiKeyId, null, toolName, finalPayload, response, executionTimeMs);
+            }
         });
     }
 
-    private void recordAuditLog(String requestId, UUID apiKeyId, UUID serverId, String toolName,
+    private boolean isServerSpecificMethod(String method) {
+       // return "tools/call".equals(method) || "resources/read".equals(method) || "prompts/get".equals(method);
+    	 return "tools/call".equals(method) ;
+    }
+
+
+
+    private void recordAuditLog(String requestId, Long apiKeyId, Long serverId, String toolName,
                                  String rawPayload, JsonRpcResponse response, long executionTimeMs) {
         if (auditLogService == null) return;
         int status = 200;
@@ -172,7 +182,7 @@ public class McpRoutingService {
         return request.getMethod();
     }
 
-    private UUID extractServerId(JsonRpcRequest request) {
+    private Long extractServerId(JsonRpcRequest request) {
         // Can be resolved dynamically if needed, returns null if global
         return null;
     }
@@ -296,15 +306,26 @@ public class McpRoutingService {
 
     @SuppressWarnings("unchecked")
     private Mono<JsonRpcResponse> handleToolsCall(JsonRpcRequest request, McpApiKeyEntity apiKey) {
+        long startTime = System.currentTimeMillis();
+        String requestIdStr = request != null && request.getId() != null ? String.valueOf(request.getId()) : null;
+        Long apiKeyId = apiKey != null ? apiKey.getId() : null;
+        String rawPayload = null;
+        try { rawPayload = objectMapper.writeValueAsString(request); } catch (Exception e) {}
+        final String finalPayload = rawPayload;
+
         Map<String, Object> params = request.getParams();
         if (params == null || !params.containsKey("name")) {
-            return Mono.just(JsonRpcResponse.error(request.getId(), JsonRpcError.INVALID_PARAMS, "Missing 'name' in tools/call params"));
+            JsonRpcResponse err = JsonRpcResponse.error(request.getId(), JsonRpcError.INVALID_PARAMS, "Missing 'name' in tools/call params");
+            recordAuditLog(requestIdStr, apiKeyId, null, extractToolOrResourceName(request), finalPayload, err, System.currentTimeMillis() - startTime);
+            return Mono.just(err);
         }
 
         String namespacedToolName = (String) params.get("name");
         int separatorIdx = namespacedToolName.indexOf(ToolRegistryService.NAMESPACE_SEPARATOR);
         if (separatorIdx <= 0) {
-            return Mono.just(JsonRpcResponse.error(request.getId(), JsonRpcError.INVALID_PARAMS, "Tool name must be namespaced ({server_name}__{tool_name})"));
+            JsonRpcResponse err = JsonRpcResponse.error(request.getId(), JsonRpcError.INVALID_PARAMS, "Tool name must be namespaced ({server_name}__{tool_name})");
+            recordAuditLog(requestIdStr, apiKeyId, null, extractToolOrResourceName(request), finalPayload, err, System.currentTimeMillis() - startTime);
+            return Mono.just(err);
         }
 
         String serverName = namespacedToolName.substring(0, separatorIdx);
@@ -313,14 +334,20 @@ public class McpRoutingService {
         return serverRepository.findByName(serverName)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Target MCP Server not found: " + serverName)))
                 .flatMap(server -> {
+                    Long serverId = server.getId(); // <-- 여기서 정확한 TSID Long 서버 ID 획득!
+
                     if (Boolean.FALSE.equals(server.getEnabled())) {
-                        return Mono.just(JsonRpcResponse.error(request.getId(), JsonRpcError.SERVER_ERROR, "Target MCP Server is disabled"));
+                        JsonRpcResponse err = JsonRpcResponse.error(request.getId(), JsonRpcError.SERVER_ERROR, "Target MCP Server is disabled");
+                        recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, err, System.currentTimeMillis() - startTime);
+                        return Mono.just(err);
                     }
 
-                    return apiKeyPermissionService.isToolAllowed(apiKey, server.getId(), originalToolName)
+                    return apiKeyPermissionService.isToolAllowed(apiKey, serverId, originalToolName)
                             .flatMap(allowed -> {
                                 if (!allowed) {
-                                    return Mono.just(JsonRpcResponse.error(request.getId(), JsonRpcError.UNAUTHORIZED, "API Key unauthorized for tool: " + namespacedToolName));
+                                    JsonRpcResponse err = JsonRpcResponse.error(request.getId(), JsonRpcError.UNAUTHORIZED, "API Key unauthorized for tool: " + namespacedToolName);
+                                    recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, err, System.currentTimeMillis() - startTime);
+                                    return Mono.just(err);
                                 }
 
                                 Map<String, Object> upstreamParams = new HashMap<>(params != null ? params : Map.of());
@@ -333,12 +360,19 @@ public class McpRoutingService {
                                         "params", upstreamParams
                                 );
 
-                                return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap);
+                                return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap)
+                                        .doOnNext(response -> {
+                                            // 정상/에러 응답 완료 시 정확한 serverId를 포함하여 감사 로그 기록
+                                            long executionTimeMs = System.currentTimeMillis() - startTime;
+                                            recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, response, executionTimeMs);
+                                        });
                             });
                 })
                 .onErrorResume(ex -> {
                     log.error("Routing error for tool call [{}]: {}", namespacedToolName, ex.getMessage(), ex);
-                    return Mono.just(JsonRpcResponse.error(request.getId(), JsonRpcError.INTERNAL_ERROR, ex.getMessage()));
+                    JsonRpcResponse err = JsonRpcResponse.error(request.getId(), JsonRpcError.INTERNAL_ERROR, ex.getMessage());
+                    recordAuditLog(requestIdStr, apiKeyId, null, extractToolOrResourceName(request), finalPayload, err, System.currentTimeMillis() - startTime);
+                    return Mono.just(err);
                 });
     }
 

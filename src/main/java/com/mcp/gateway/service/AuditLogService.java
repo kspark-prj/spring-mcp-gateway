@@ -46,7 +46,7 @@ public class AuditLogService {
     /**
      * Asynchronously records an audit log entry in a non-blocking reactive pipeline.
      */
-    public Mono<Void> recordAuditLog(String requestId, UUID apiKeyId, UUID serverId, String toolName,
+    public Mono<Void> recordAuditLog(String requestId, Long apiKeyId, Long serverId, String toolName,
                                      String httpMethod, String rawPayload, int status, long executionTimeMs, String errorMessage) {
 
         return systemSettingsService.isPiiMaskingEnabled()

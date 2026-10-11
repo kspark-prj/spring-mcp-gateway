@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -41,10 +40,10 @@ public class StdioProcessManager {
     private static final Logger log = LoggerFactory.getLogger(StdioProcessManager.class);
 
     private final ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
-    private final ConcurrentHashMap<UUID, ManagedProcess> activeProcesses = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, ManagedProcess> activeProcesses = new ConcurrentHashMap<>();
 
     public static class ManagedProcess {
-        public final UUID serverId;
+        public final Long serverId;
         public final String serverName;
         public final String commandLine;
         public final Map<String, String> environment;
@@ -55,7 +54,7 @@ public class StdioProcessManager {
         public final ConcurrentLinkedQueue<String> responseQueue = new ConcurrentLinkedQueue<>();
         public int restartCount = 0;
 
-        public ManagedProcess(UUID serverId, String serverName, String commandLine, Map<String, String> environment) {
+        public ManagedProcess(Long serverId, String serverName, String commandLine, Map<String, String> environment) {
             this.serverId = serverId;
             this.serverName = serverName;
             this.commandLine = commandLine;
@@ -63,7 +62,7 @@ public class StdioProcessManager {
         }
     }
 
-    public ManagedProcess startProcess(UUID serverId, String serverName, String commandLine, Map<String, String> envMap) throws IOException {
+    public ManagedProcess startProcess(Long serverId, String serverName, String commandLine, Map<String, String> envMap) throws IOException {
         log.info("📌 [STDIO-DEBUG] startProcess() called: serverId={}, serverName={}, commandLine={}", serverId, serverName, commandLine);
         stopProcess(serverId);
 
@@ -150,7 +149,7 @@ public class StdioProcessManager {
         log.info("Successfully launched STDIO process [{}] with PID: {}", mp.serverName, process.pid());
     }
 
-    public void sendInput(UUID serverId, String jsonPayload) throws IOException {
+    public void sendInput(Long serverId, String jsonPayload) throws IOException {
         ManagedProcess mp = activeProcesses.get(serverId);
         log.info("📌 [STDIO-DEBUG] sendInput() called: serverId={}, payload={}", serverId, jsonPayload);
         if (mp == null || !mp.running.get() || mp.process == null || !mp.process.isAlive()) {
@@ -165,7 +164,7 @@ public class StdioProcessManager {
         }
     }
 
-    public String pollResponse(UUID serverId, long timeoutMs) throws InterruptedException {
+    public String pollResponse(Long serverId, long timeoutMs) throws InterruptedException {
         ManagedProcess mp = activeProcesses.get(serverId);
         if (mp == null) return null;
 
@@ -182,7 +181,7 @@ public class StdioProcessManager {
         return null;
     }
 
-    public void stopProcess(UUID serverId) {
+    public void stopProcess(Long serverId) {
         ManagedProcess mp = activeProcesses.remove(serverId);
         if (mp == null) return;
 

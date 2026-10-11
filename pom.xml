@@ -72,6 +72,13 @@
             <version>${caffeine.version}</version>
         </dependency>
 
+        <!-- TSID (Time-Sorted ID) Creator for cluster-safe Long PK generation -->
+        <dependency>
+            <groupId>com.github.f4b6a3</groupId>
+            <artifactId>tsid-creator</artifactId>
+            <version>5.2.6</version>
+        </dependency>
+
         <!-- Resilience4j for Circuit Breaker & Timeout Management -->
         <dependency>
             <groupId>io.github.resilience4j</groupId>

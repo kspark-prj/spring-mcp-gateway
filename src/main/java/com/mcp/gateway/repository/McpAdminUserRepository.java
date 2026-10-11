@@ -1,17 +1,17 @@
 package com.mcp.gateway.repository;
 
-import com.mcp.gateway.domain.McpAdminUserEntity;
 import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import org.springframework.stereotype.Repository;
-import reactor.core.publisher.Mono;
 
-import java.util.UUID;
+import com.mcp.gateway.domain.McpAdminUserEntity;
+
+import reactor.core.publisher.Mono;
 
 /**
  * Reactive R2DBC repository for {@link McpAdminUserEntity}.
  */
 @Repository
-public interface McpAdminUserRepository extends R2dbcRepository<McpAdminUserEntity, UUID> {
+public interface McpAdminUserRepository extends R2dbcRepository<McpAdminUserEntity, Long> {
 
     Mono<McpAdminUserEntity> findByUsername(String username);
 }

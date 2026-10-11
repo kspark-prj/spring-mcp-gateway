@@ -1,22 +1,16 @@
 package com.mcp.gateway.domain;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.Transient;
-import org.springframework.data.domain.Persistable;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.Instant;
-import java.util.UUID;
 
 /**
  * Entity representing an API key credential used by clients.
+ * Uses TSID(Long) primary key via {@link BaseTsidEntity}.
  */
 @Table("mcp_api_keys")
-public class McpApiKeyEntity implements Persistable<UUID> {
-
-    @Id
-    private UUID id;
+public class McpApiKeyEntity extends BaseTsidEntity {
 
     @Column("key_name")
     private String keyName;
@@ -42,16 +36,13 @@ public class McpApiKeyEntity implements Persistable<UUID> {
     @Column("updated_at")
     private Instant updatedAt;
 
-    @Transient
-    private boolean isNew = false;
-
     public McpApiKeyEntity() {
     }
 
-    public McpApiKeyEntity(UUID id, String keyName, String keyHashSha256, Boolean masterKey,
+    public McpApiKeyEntity(Long id, String keyName, String keyHashSha256, Boolean masterKey,
                            Boolean enabled, Integer rateLimitPerMinute, Instant expiresAt,
                            Instant createdAt, Instant updatedAt) {
-        this.id = id;
+        setId(id);
         this.keyName = keyName;
         this.keyHashSha256 = keyHashSha256;
         this.masterKey = masterKey;
@@ -60,24 +51,6 @@ public class McpApiKeyEntity implements Persistable<UUID> {
         this.expiresAt = expiresAt;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
-    }
-
-    @Override
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    @Override
-    public boolean isNew() {
-        return isNew || id == null;
-    }
-
-    public void setNew(boolean isNew) {
-        this.isNew = isNew;
     }
 
     public String getKeyName() {

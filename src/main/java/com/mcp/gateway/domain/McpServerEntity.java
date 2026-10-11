@@ -1,23 +1,16 @@
 package com.mcp.gateway.domain;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.Transient;
-import org.springframework.data.domain.Persistable;
+import java.time.Instant;
+
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
-import java.time.Instant;
-import java.util.UUID;
-
 /**
  * Entity representing an aggregated MCP upstream server (HTTP or STDIO).
- * Implements {@link Persistable} to ensure accurate R2DBC INSERT/UPDATE differentiation.
+ * Uses TSID(Long) primary key via {@link BaseTsidEntity}.
  */
 @Table("mcp_servers")
-public class McpServerEntity implements Persistable<UUID> {
-
-    @Id
-    private UUID id;
+public class McpServerEntity extends BaseTsidEntity {
 
     @Column("name")
     private String name;
@@ -61,16 +54,13 @@ public class McpServerEntity implements Persistable<UUID> {
     @Column("updated_at")
     private Instant updatedAt;
 
-    @Transient
-    private boolean isNew = false;
-
     public McpServerEntity() {
     }
 
-    public McpServerEntity(UUID id, String name, String transportType, String endpointUrl,
+    public McpServerEntity(Long id, String name, String transportType, String endpointUrl,
                            String commandLine, String environmentVariables, String healthStatus,
                            Integer retryCount, Boolean enabled, Instant createdAt, Instant updatedAt) {
-        this.id = id;
+        setId(id);
         this.name = name;
         this.transportType = transportType;
         this.endpointUrl = endpointUrl;
@@ -81,24 +71,6 @@ public class McpServerEntity implements Persistable<UUID> {
         this.enabled = enabled;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
-    }
-
-    @Override
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    @Override
-    public boolean isNew() {
-        return isNew || id == null;
-    }
-
-    public void setNew(boolean isNew) {
-        this.isNew = isNew;
     }
 
     public String getName() {

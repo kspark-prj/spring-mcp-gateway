@@ -1,21 +1,25 @@
 package com.mcp.gateway.service;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.mcp.gateway.domain.McpServerEntity;
-import com.mcp.gateway.repository.McpServerRepository;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
-import java.util.UUID;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.mcp.gateway.config.TsidConfig;
+import com.mcp.gateway.domain.McpServerEntity;
+import com.mcp.gateway.repository.McpServerRepository;
 
-import static org.junit.jupiter.api.Assertions.*;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 
 class DynamicCircuitBreakerManagerTest {
 
@@ -39,7 +43,7 @@ class DynamicCircuitBreakerManagerTest {
     @DisplayName("getCircuitBreaker preserves single state instance per server")
     void testGetCircuitBreakerPreservesState() {
         McpServerEntity server = new McpServerEntity();
-        server.setId(UUID.randomUUID());
+        server.setId(TsidConfig.nextLong());
         server.setName("test-server");
         server.setFailureRateThreshold(60.0f);
         server.setSlidingWindowSize(20);
@@ -56,7 +60,7 @@ class DynamicCircuitBreakerManagerTest {
     @DisplayName("refreshCache updates settings and replaces instance in registry")
     void testRefreshCacheEvictsAndReloads() {
         McpServerEntity server1 = new McpServerEntity();
-        server1.setId(UUID.randomUUID());
+        server1.setId(TsidConfig.nextLong());
         server1.setName("server-alpha");
         server1.setFailureRateThreshold(50.0f);
 
@@ -81,7 +85,7 @@ class DynamicCircuitBreakerManagerTest {
     @DisplayName("evictCache removes server from registry and cache")
     void testEvictCache() {
         McpServerEntity server = new McpServerEntity();
-        server.setId(UUID.randomUUID());
+        server.setId(TsidConfig.nextLong());
         server.setName("server-to-delete");
 
         manager.getCircuitBreaker(server);

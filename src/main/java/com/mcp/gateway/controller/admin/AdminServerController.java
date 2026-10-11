@@ -3,7 +3,6 @@ package com.mcp.gateway.controller.admin;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -89,7 +88,7 @@ public class AdminServerController {
     }
 
     @PutMapping("/{id}")
-    public Mono<ResponseEntity<Object>> updateServer(@PathVariable UUID id, @RequestBody McpServerEntity update) {
+    public Mono<ResponseEntity<Object>> updateServer(@PathVariable long id, @RequestBody McpServerEntity update) {
         return serverRepository.findById(id)
                 .flatMap(existing -> {
                     if ("HTTP".equalsIgnoreCase(update.getTransportType())) {
@@ -121,7 +120,7 @@ public class AdminServerController {
     }
 
     @DeleteMapping("/{id}")
-    public Mono<ResponseEntity<Void>> deleteServer(@PathVariable UUID id) {
+    public Mono<ResponseEntity<Void>> deleteServer(@PathVariable long id) {
         return serverRepository.findById(id)
                 .flatMap(server -> {
                     String serverName = server.getName();
