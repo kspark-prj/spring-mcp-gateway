@@ -20,7 +20,7 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; }
-        
+
         #app-container { display: none; } /* Hidden until authenticated */
 
         header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); margin-bottom: 25px; }
@@ -292,6 +292,26 @@
         </div>
     </div>
 
+    <!-- API Key 발급 결과 및 복사 레이어 팝업 추가됨 -->
+    <div id="keyResultModal" class="modal">
+        <div class="modal-content" style="width: 480px;">
+            <h3 style="margin-bottom: 10px; color: var(--success-color);">🎉 API Key 발급 완료</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">
+                생성된 RAW API Key는 보안상 <strong>지금 이 창을 닫으면 다시 확인할 수 없습니다</strong>. 반드시 안전한 곳에 복사해 두세요!
+            </p>
+            <div class="form-group">
+                <label>발급된 RAW API Key</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="raw-key-output" readonly style="background: #111827; font-family: monospace; color: var(--accent-color);">
+                    <button class="btn" id="copy-btn-action" onclick="copyRawApiKey()" style="white-space: nowrap;">복사하기</button>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeKeyResultModal()">확인 및 닫기</button>
+            </div>
+        </div>
+    </div>
+
     <!-- API Key Permission Management Modal -->
     <div id="permissionModal" class="modal">
         <div class="modal-content" style="width: 550px;">
@@ -369,7 +389,7 @@
                     }
                 }
             } catch (e) {}
-            
+
             // Unauthenticated
             document.getElementById('login-overlay').style.display = 'flex';
             document.getElementById('app-container').style.display = 'none';
@@ -574,6 +594,31 @@
         function openKeyModal() { document.getElementById('keyModal').style.display = 'flex'; }
         function closeKeyModal() { document.getElementById('keyModal').style.display = 'none'; }
 
+        function closeKeyResultModal() {
+            document.getElementById('keyResultModal').style.display = 'none';
+        }
+
+        function copyRawApiKey() {
+            const inputElem = document.getElementById('raw-key-output');
+            inputElem.select();
+            inputElem.setSelectionRange(0, 99999); // 모바일/PC 호환용
+
+            navigator.clipboard.writeText(inputElem.value).then(() => {
+                const btn = document.getElementById('copy-btn-action');
+                const originalText = btn.innerText;
+                btn.innerText = '복사 완료!';
+                btn.style.backgroundColor = 'var(--success-color)';
+                btn.style.color = '#000';
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.style.backgroundColor = '';
+                    btn.style.color = '';
+                }, 2000);
+            }).catch(err => {
+                alert('클립보드 복사에 실패했습니다. 수동으로 복사해주세요.');
+            });
+        }
+
         async function openPermissionModal(keyId) {
             const key = apiKeysMap[keyId];
             document.getElementById('perm-key-id').value = keyId;
@@ -586,7 +631,7 @@
             } else {
                 document.getElementById('perm-key-info').innerText = `API Key: ${keyId}`;
             }
-            
+
             const select = document.getElementById('perm-server-select');
             select.innerHTML = allServersList.map(s => `<option value="${s.id}">${escapeHtml(s.name)} (${s.transportType})</option>`).join('');
             document.getElementById('perm-tools-input').value = '*';
@@ -709,9 +754,12 @@
             });
             if (res.ok) {
                 const data = await res.json();
-                alert(`API Key가 성공적으로 생성되었습니다!\n\nRAW API KEY (지금 복사하십시오. 다시 표시되지 않습니다):\n${data.rawApiKey}`);
                 closeKeyModal();
                 loadApiKeys();
+
+                // 기존 alert 대신 레이어 팝업에 키 주입 후 표시
+                document.getElementById('raw-key-output').value = data.rawApiKey;
+                document.getElementById('keyResultModal').style.display = 'flex';
             }
         }
 
