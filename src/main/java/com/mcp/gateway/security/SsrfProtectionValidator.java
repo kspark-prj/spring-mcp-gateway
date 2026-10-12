@@ -1,12 +1,12 @@
 package com.mcp.gateway.security;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 /**
  * SSRF (Server-Side Request Forgery) protection validator for remote HTTP upstream MCP server registration and execution.
@@ -47,9 +47,21 @@ public class SsrfProtectionValidator {
 
             // Perform DNS resolution check
             InetAddress address = InetAddress.getByName(host);
-            if (address.isLoopbackAddress() || address.isAnyLocalAddress() || address.isSiteLocalAddress() || address.isLinkLocalAddress()) {
-                log.warn("SSRF warning: Target URL resolves to loopback/private/link-local address: {} ({})", host, address.getHostAddress());
+
+            // 로컬/루프백 주소인 경우 명시적으로 안전하다고 판단하여 경고 로그를 건너뜁니다.
+            boolean isLocalOrPrivate = address.isLoopbackAddress()
+                    || address.isAnyLocalAddress()
+                    || address.isSiteLocalAddress()
+                    || address.isLinkLocalAddress()
+                    || host.equalsIgnoreCase("localhost");
+
+            if (!isLocalOrPrivate) {
+                // 운영 환경 등 외부 통신일 때만 필요한 추가 검증이나 로그가 있다면 여기에 배치
+            } else {
+                // 로컬/사설 주소 접근인 경우 로그를 남기지 않고 통과시킵니다.
+                log.debug("Allowed local/private upstream URL: {} ({})", host, address.getHostAddress());
             }
+
 
         } catch (UnknownHostException e) {
             throw new IllegalArgumentException("Unable to resolve upstream host DNS: " + urlStr, e);

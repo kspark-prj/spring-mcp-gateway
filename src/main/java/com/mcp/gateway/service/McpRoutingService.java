@@ -35,7 +35,6 @@ public class McpRoutingService {
     private final ResourceTemplateRegistryService resourceTemplateRegistryService;
     private final PromptRegistryService promptRegistryService;
     private final McpServerRepository serverRepository;
-    private final ApiKeyPermissionService apiKeyPermissionService;
     private final StdioProcessManager stdioProcessManager;
     private final SsrfProtectionValidator ssrfProtectionValidator;
     private final DynamicCircuitBreakerManager dynamicCircuitBreakerManager;
@@ -48,7 +47,6 @@ public class McpRoutingService {
                              ResourceTemplateRegistryService resourceTemplateRegistryService,
                              PromptRegistryService promptRegistryService,
                              McpServerRepository serverRepository,
-                             ApiKeyPermissionService apiKeyPermissionService,
                              StdioProcessManager stdioProcessManager,
                              SsrfProtectionValidator ssrfProtectionValidator,
                              DynamicCircuitBreakerManager dynamicCircuitBreakerManager,
@@ -60,7 +58,6 @@ public class McpRoutingService {
         this.resourceTemplateRegistryService = resourceTemplateRegistryService;
         this.promptRegistryService = promptRegistryService;
         this.serverRepository = serverRepository;
-        this.apiKeyPermissionService = apiKeyPermissionService;
         this.stdioProcessManager = stdioProcessManager;
         this.ssrfProtectionValidator = ssrfProtectionValidator;
         this.dynamicCircuitBreakerManager = dynamicCircuitBreakerManager;

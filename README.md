@@ -246,7 +246,7 @@ Flyway 마이그레이션 스크립트(`src/main/resources/db/migration/V1__init
 
 - `http://localhost:8080/dashboard.html` 단일 HTML 파일로 구성된 Vanilla JS 대시보드입니다.
 - **주요 기능**:
-    - 실시간 Canvas 기반 트래픽 그래프 모니터링 (5초 단위 자동 갱신)
+    - mcp 도구목록 관리
     - HTTP / STDIO 업스트림 서버 즉시 등록 및 헬스 상태 모니터링
     - 새로운 API Key 생성 및 RAW 키 1회성 발급 안내
     - 동적 PII 마스킹 실시간 온/오프 토글 스위치
