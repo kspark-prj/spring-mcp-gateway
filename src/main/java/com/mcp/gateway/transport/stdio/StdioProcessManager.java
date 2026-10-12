@@ -99,12 +99,12 @@ public class StdioProcessManager {
         Process process = pb.start();
         mp.process = process;
 
-        // OS별 캐릭터셋 자동 설정 (Windows는 MS949로 에러 및 출력 로그 깨짐 방지, Linux/Mac은 UTF-8)
-        Charset systemCharset = isWindows ? Charset.forName("MS949") : StandardCharsets.UTF_8;
+        // ⭐ MCP 서버의 표준 입출력 통신은 OS 환경과 무관하게 항상 UTF-8을 사용해야 합니다.
+        Charset utf8Charset = StandardCharsets.UTF_8;
 
-        mp.writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
-        mp.reader = new BufferedReader(new InputStreamReader(process.getInputStream(), systemCharset));
-        log.info("📌 [STDIO-DEBUG] Process started, PID={}, isAlive={}, systemCharset={}", process.pid(), process.isAlive(), systemCharset);
+        mp.writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), utf8Charset));
+        mp.reader = new BufferedReader(new InputStreamReader(process.getInputStream(), utf8Charset));
+        log.info("📌 [STDIO-DEBUG] Process started, PID={}, isAlive={}, systemCharset={}", process.pid(), process.isAlive(), utf8Charset);
 
         // Virtual Thread stdout reader loop
         virtualThreadExecutor.submit(() -> {
@@ -133,10 +133,9 @@ public class StdioProcessManager {
             }
         });
 
-        // Virtual Thread stderr reader loop (MS949 캐릭터셋 적용)
         virtualThreadExecutor.submit(() -> {
             log.info("📌 [STDIO-DEBUG] stderr reader thread started for [{}]", mp.serverName);
-            try (BufferedReader stderrReader = new BufferedReader(new InputStreamReader(process.getErrorStream(), systemCharset))) {
+            try (BufferedReader stderrReader = new BufferedReader(new InputStreamReader(process.getErrorStream(), utf8Charset))) {
                 String errLine;
                 while (mp.running.get() && (errLine = stderrReader.readLine()) != null) {
                     log.warn("📌 [STDIO-DEBUG] stderr [{}]: {}", mp.serverName, errLine);
