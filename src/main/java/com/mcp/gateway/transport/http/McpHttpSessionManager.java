@@ -1,5 +1,6 @@
 package com.mcp.gateway.transport.http;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
@@ -7,6 +8,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -16,6 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -43,6 +46,7 @@ public class McpHttpSessionManager {
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final NettyDataBufferPassthroughProxy bufferProxy;
 
     /**
      * Cache mapping server endpoint URL → active Mcp-Session-Id.
@@ -50,9 +54,12 @@ public class McpHttpSessionManager {
      */
     private final Cache<String, String> sessionCache;
 
-    public McpHttpSessionManager(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
+    public McpHttpSessionManager(WebClient.Builder webClientBuilder,
+                                 ObjectMapper objectMapper,
+                                 NettyDataBufferPassthroughProxy bufferProxy) {
         this.webClient = webClientBuilder.build();
         this.objectMapper = objectMapper;
+        this.bufferProxy = bufferProxy;
         this.sessionCache = Caffeine.newBuilder()
                 .expireAfterWrite(Duration.ofMinutes(5))
                 .maximumSize(500)
@@ -135,7 +142,8 @@ public class McpHttpSessionManager {
                 .bodyValue(initRequest)
                 .exchangeToMono(response -> {
                     if (!response.statusCode().is2xxSuccessful()) {
-                        return response.bodyToMono(String.class)
+                        return bufferProxy.aggregateAndRelease(response.bodyToFlux(DataBuffer.class), 10000L)
+                                .map(bytes -> new String(bytes, StandardCharsets.UTF_8))
                                 .flatMap(body -> Mono.error(new RuntimeException(
                                         "Initialize failed with status " + response.statusCode() + ": " + body)));
                     }
@@ -147,8 +155,9 @@ public class McpHttpSessionManager {
                     }
 
                     final String finalSessionId = sessionId;
-                    return response.bodyToMono(String.class)
-                            .map(responseStr -> parseResponseBody(responseStr))
+                    return bufferProxy.aggregateAndRelease(response.bodyToFlux(DataBuffer.class), 10000L)
+                            .map(bytes -> new String(bytes, StandardCharsets.UTF_8))
+                            .map(this::parseResponseBody)
                             .thenReturn(finalSessionId);
                 })
                 .flatMap(sessionId -> sendInitializedNotification(endpointUrl, sessionId)
@@ -190,6 +199,7 @@ public class McpHttpSessionManager {
 
     /**
      * Executes a POST request to the upstream MCP server with session headers.
+     * Uses NettyDataBufferPassthroughProxy to enforce maximum payload limits and guarantee DirectByteBuf release.
      */
     private Mono<Map<String, Object>> doPost(String endpointUrl, String sessionId, Map<String, Object> jsonRpcRequest) {
         WebClient.RequestBodySpec spec = webClient.post()
@@ -201,10 +211,38 @@ public class McpHttpSessionManager {
             spec = spec.header(MCP_SESSION_ID_HEADER, sessionId);
         }
 
-        return spec.bodyValue(jsonRpcRequest)
-                .retrieve()
-                .bodyToMono(String.class)
+        return bufferProxy.aggregateAndRelease(
+                    spec.bodyValue(jsonRpcRequest)
+                        .retrieve()
+                        .bodyToFlux(DataBuffer.class),
+                    30000L
+                )
+                .map(bytes -> new String(bytes, StandardCharsets.UTF_8))
                 .map(this::parseResponseBody);
+    }
+
+    /**
+     * Executes a streaming request to upstream MCP server returning a memory-managed DataBuffer Flux.
+     * Uses NettyDataBufferPassthroughProxy to safely manage DirectByteBuf release during streaming.
+     */
+    public Flux<DataBuffer> sendStreamingRequest(String endpointUrl, Map<String, Object> jsonRpcRequest) {
+        return getOrCreateSession(endpointUrl)
+                .flatMapMany(sessionId -> {
+                    WebClient.RequestBodySpec spec = webClient.post()
+                            .uri(endpointUrl)
+                            .header("Content-Type", "application/json")
+                            .header("Accept", "text/event-stream, application/json");
+
+                    if (sessionId != null && !sessionId.isEmpty()) {
+                        spec = spec.header(MCP_SESSION_ID_HEADER, sessionId);
+                    }
+
+                    return bufferProxy.safePassthrough(
+                            spec.bodyValue(jsonRpcRequest)
+                                    .retrieve()
+                                    .bodyToFlux(DataBuffer.class)
+                    );
+                });
     }
 
     /**

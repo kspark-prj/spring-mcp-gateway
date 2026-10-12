@@ -48,12 +48,15 @@ sequenceDiagram
     autonumber
     actor Client as LLM 에이전트 / MCP 클라이언트
     participant Gateway as Security & /mcp Controller
+    participant BufferProxy as NettyDataBufferPassthroughProxy
     participant Cache as Caffeine 캐시 (60s TTL)
     participant Router as Tool Registry & Router
     participant Upstream as 업스트림 서버 (HTTP / STDIO)
     participant Audit as 비동기 감사 로거 & DB
 
-    Client->>Gateway: POST /mcp (Header: X-API-KEY, Payload: JSON-RPC tools/call)
+    Client->>Gateway: POST /mcp (Header: X-API-KEY, Payload: DataBuffer Stream)
+    Gateway->>BufferProxy: aggregateAndRelease(10MB 한도 검증 & 버퍼 릴리즈)
+    BufferProxy-->>Gateway: 안전하게 집계된 바이트 페이로드 반환
     Gateway->>Cache: SHA-256 API Key 핑거프린트 조회
     Cache-->>Gateway: 검증된 McpApiKeyEntity 반환
     Gateway->>Router: 네임스페이스 툴({server}__{tool}) 라우팅 요청
@@ -125,6 +128,14 @@ sequenceDiagram
 
 - Netty 및 Spring Lifecycle 셧다운 타임아웃을 35초로 설정하여 배포/스케일인 시 LLM 에이전트의 긴 툴 실행 호흡(In-flight Request)을 안전하게 완수하고 종료됩니다.
 
+### 7. 고성능 Netty DataBuffer 파이프라인 및 메모리 누수 방어 (`NettyDataBufferPassthroughProxy`)
+
+- **10MB 페이로드 조기 차단 (DoS/OOM 방어)**: `@RequestBody String`을 사용하지 않고 Netty 바이트 버퍼 스트림(`Flux<DataBuffer>`) 레벨에서 10MB 초과 여부를 즉시 감지하여 차단(`413 PAYLOAD_TOO_LARGE`)합니다.
+- **DirectByteBuf 누수 원천 방지**: 요청/응답 처리 완료 시점뿐 아니라 타임아웃, 클라이언트 연결 종료, 예외 발생 시에도 `finally` 및 `doOnDiscard` 훅을 통해 `DataBufferUtils.release()`를 강제하여 Netty 네이티브 메모리 누수를 방지합니다.
+- **GC(가비지 컬렉션) 부하 대폭 감소**: 거대한 String 객체를 JVM 힙(Heap)에 불필요하게 생성/폐기하는 과정을 줄여 Stop-the-World 지연 시간을 최소화합니다.
+- **SSE 스트리밍 무지연 중계 (`safePassthrough`)**: Upstream 원격 MCP 서버의 스트리밍 응답이나 GET `/mcp` SSE 전송 시 리액티브 백프레셔(Backpressure)를 유지하며 버퍼를 안전하게 통과시킵니다.
+- **Upstream 응답 안정성 강화**: `McpHttpSessionManager`에서 원격 MCP 서버의 비정상 대용량 응답 조기 차단 및 네이티브 버퍼 반환을 보장합니다.
+
 ---
 
 ## 🛠️ 5. 기술 스택 (Tech Stack)
@@ -133,6 +144,7 @@ sequenceDiagram
 | :------------------------- | :------------------------ | :---------------------------------------------------------------- |
 | **Language / Runtime**     | Java 21                   | Virtual Threads (경량 스레드) 기반 블로킹 I/O 격리                |
 | **Framework**              | Spring Boot 3.3.4         | Spring WebFlux, Spring Security Reactive                          |
+| **Transport / Streaming**  | Netty DataBuffer / WebFlux | Zero-leak 버퍼 해제, 10MB 페이로드 제한 및 SSE 패스스루          |
 | **Database & Persistence** | PostgreSQL 16 + R2DBC     | 비동기 리액티브 DB 연동 (`Persistable<UUID>` 전용 PK)             |
 | **Schema Migration**       | Flyway                    | Flyway JDBC 연동 (모든 테이블/컬럼 코멘트 명시적 자동 생성)       |
 | **In-Memory Cache**        | Caffeine Cache            | Redis 배제, 30s~60s short TTL & `maximumSize(2000)` 자가치유 캐시 |

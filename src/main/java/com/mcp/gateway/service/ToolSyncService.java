@@ -162,7 +162,7 @@ public class ToolSyncService {
                         return Mono.just(0);
                     }
 
-                    String currentHash = computeListHash(rawTools);
+                    String currentHash = computeListHash(server.getName(), rawTools);
                     log.info("🔍 [ToolSync] Server [{}]: {} tools fetched, list_hash={}", server.getName(), rawTools.size(), currentHash);
 
                     // 해시 비교 — 변동 없으면 Upsert 스킵
@@ -363,17 +363,17 @@ public class ToolSyncService {
     // ═══════════════════════════════════════════════════════════════════
 
     /**
-     * 전체 도구 목록의 SHA-256 해시를 계산한다.
-     * 도구 이름 기준 정렬 후 직렬화하여 순서에 무관한 결정론적 해시를 보장.
+     * 서버명과 전체 도구 목록의 결합 SHA-256 해시를 계산한다.
+     * 서버명이 바뀌거나 도구 목록이 변경될 때 해시 불일치가 발생하도록 보장.
      */
-    private String computeListHash(List<Map<String, Object>> tools) {
+    private String computeListHash(String serverName, List<Map<String, Object>> tools) {
         try {
             // 도구 이름 기준 정렬 → 결정론적 직렬화
             List<String> sortedNames = tools.stream()
                     .map(t -> String.valueOf(t.get("name")))
                     .sorted()
                     .collect(Collectors.toList());
-            String serialized = objectMapper.writeValueAsString(sortedNames);
+            String serialized = serverName + ":" + objectMapper.writeValueAsString(sortedNames);
             return sha256Hex(serialized);
         } catch (Exception e) {
             log.warn("⚠️  [ToolSync] Failed to compute list hash, using random fallback.", e);

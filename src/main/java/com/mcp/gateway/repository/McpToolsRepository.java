@@ -69,4 +69,18 @@ public interface McpToolsRepository extends ReactiveCrudRepository<McpToolsEntit
     @Modifying
     @Query("DELETE FROM mcp_tools WHERE server_id = :serverId AND namespaced_name NOT IN (:namespacedNames)")
     Mono<Long> deleteObsoleteTools(Long serverId, java.util.Collection<String> namespacedNames);
+
+    /**
+     * 서버명 변경 시 해당 서버의 모든 도구에 대해 server_name과 namespaced_name 일괄 갱신.
+     * 기존의 is_enabled 활성/비활성 설정은 보존된다.
+     */
+    @Modifying
+    @Query("""
+            UPDATE mcp_tools
+            SET server_name = :newServerName,
+                namespaced_name = CONCAT(:newServerName, '__', tool_name),
+                updated_at = NOW()
+            WHERE server_id = :serverId
+            """)
+    Mono<Long> updateServerNameAndNamespace(Long serverId, String newServerName);
 }

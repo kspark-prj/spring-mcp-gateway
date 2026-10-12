@@ -39,4 +39,9 @@ public interface McpServerToolHashRepository extends ReactiveCrudRepository<McpS
                 synced_at  = NOW()
             """)
     Mono<Void> upsertHash(Long serverId, String listHash, Integer toolCount);
+
+    /** 서버 ID 기준 해시 레코드 삭제 (서버 설정 변경 시 다음 동기화 강제 재실행용) */
+    @Modifying
+    @Query("DELETE FROM mcp_server_tool_hash WHERE server_id = :serverId")
+    Mono<Void> deleteByServerId(Long serverId);
 }

@@ -3,10 +3,10 @@ package com.mcp.gateway.transport.http;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -55,6 +55,9 @@ public class NettyDataBufferPassthroughProxy {
                         DataBufferUtils.release(dataBuffer);
                     }
                 })
+                .defaultIfEmpty(new byte[0])
+                .onErrorMap(DataBufferLimitException.class,
+                        ex -> new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Payload exceeds maximum 10MB limit", ex))
                 .doOnError(ex -> log.error("Error or timeout consuming Netty DataBuffer stream", ex));
     }
 

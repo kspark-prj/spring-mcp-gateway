@@ -17,9 +17,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.mcp.gateway.domain.McpServerEntity;
 import com.mcp.gateway.repository.McpServerRepository;
+import com.mcp.gateway.repository.McpServerToolHashRepository;
+import com.mcp.gateway.repository.McpToolsRepository;
 import com.mcp.gateway.security.SsrfProtectionValidator;
 import com.mcp.gateway.service.DynamicCircuitBreakerManager;
 import com.mcp.gateway.service.ToolRegistryService;
+import com.mcp.gateway.service.ToolSyncService;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -35,15 +38,24 @@ public class AdminServerController {
     private final SsrfProtectionValidator ssrfValidator;
     private final DynamicCircuitBreakerManager circuitBreakerManager;
     private final ToolRegistryService toolRegistryService;
+    private final McpToolsRepository toolsRepository;
+    private final McpServerToolHashRepository hashRepository;
+    private final ToolSyncService toolSyncService;
 
     public AdminServerController(McpServerRepository serverRepository,
-                                SsrfProtectionValidator ssrfValidator,
-                                DynamicCircuitBreakerManager circuitBreakerManager,
-                                ToolRegistryService toolRegistryService) {
+                                 SsrfProtectionValidator ssrfValidator,
+                                 DynamicCircuitBreakerManager circuitBreakerManager,
+                                 ToolRegistryService toolRegistryService,
+                                 McpToolsRepository toolsRepository,
+                                 McpServerToolHashRepository hashRepository,
+                                 ToolSyncService toolSyncService) {
         this.serverRepository = serverRepository;
         this.ssrfValidator = ssrfValidator;
         this.circuitBreakerManager = circuitBreakerManager;
         this.toolRegistryService = toolRegistryService;
+        this.toolsRepository = toolsRepository;
+        this.hashRepository = hashRepository;
+        this.toolSyncService = toolSyncService;
     }
 
     @GetMapping
@@ -98,6 +110,12 @@ public class AdminServerController {
                             return Mono.just(ResponseEntity.badRequest().body((Object) e.getMessage()));
                         }
                     }
+
+                    String oldName = existing.getName();
+                    boolean nameChanged = update.getName() != null
+                            && !update.getName().isBlank()
+                            && !oldName.equals(update.getName());
+
                     existing.setName(update.getName());
                     existing.setTransportType(update.getTransportType());
                     existing.setEndpointUrl(update.getEndpointUrl());
@@ -111,10 +129,18 @@ public class AdminServerController {
                     if (update.getWaitDurationInOpenState() != null) existing.setWaitDurationInOpenState(update.getWaitDurationInOpenState());
 
                     existing.setUpdatedAt(Instant.now());
-                    return serverRepository.save(existing).map(saved -> {
-                        circuitBreakerManager.refreshCache(saved);
-                        return ResponseEntity.ok((Object) saved);
-                    });
+                    return serverRepository.save(existing)
+                            .flatMap(saved -> {
+                                circuitBreakerManager.refreshCache(saved);
+                                if (nameChanged) {
+                                    circuitBreakerManager.evictCache(oldName);
+                                    return toolsRepository.updateServerNameAndNamespace(saved.getId(), saved.getName())
+                                            .then(hashRepository.deleteByServerId(saved.getId()))
+                                            .then(toolSyncService.rebuildCacheNow())
+                                            .thenReturn(ResponseEntity.ok((Object) saved));
+                                }
+                                return Mono.just(ResponseEntity.ok((Object) saved));
+                            });
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -126,6 +152,9 @@ public class AdminServerController {
                     String serverName = server.getName();
                     return serverRepository.deleteById(id)
                             .then(Mono.fromRunnable(() -> circuitBreakerManager.evictCache(serverName)))
+                            .then(toolsRepository.deleteByServerId(id))
+                            .then(hashRepository.deleteByServerId(id))
+                            .then(toolSyncService.rebuildCacheNow())
                             .then(Mono.just(ResponseEntity.noContent().<Void>build()));
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());
