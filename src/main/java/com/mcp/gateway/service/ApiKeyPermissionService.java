@@ -111,6 +111,11 @@ public class ApiKeyPermissionService {
      */
     public boolean checkRateLimit(McpApiKeyEntity apiKey) {
         if (apiKey == null) return false;
+        // 마스터키인 경우 Rate Limit 제한 해제
+        if (Boolean.TRUE.equals(apiKey.getMasterKey())) {
+            return true;
+        }
+
         int limit = apiKey.getRateLimitPerMinute() != null ? apiKey.getRateLimitPerMinute() : 60;
         long currentMinute = System.currentTimeMillis() / 60000;
 
