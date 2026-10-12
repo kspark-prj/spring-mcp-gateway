@@ -23,6 +23,9 @@ uv run fast_server_http_1.py
 npx @modelcontextprotocol/inspector --server-url http://localhost:9000/mcp --transport http
 npx -y @modelcontextprotocol/server-filesystem C:\Users\username\Downloads
 
+stdio 방식 테스트
+npx @modelcontextprotocol/inspector python fast_server_stdio.py
+
 #이러면 내부에서 spring mcp gateway url로 X-API-KEY 헤더값을 전달하여 호출
 
 ````
