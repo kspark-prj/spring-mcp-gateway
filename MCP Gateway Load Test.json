@@ -1,0 +1,54 @@
+{
+    "info": {
+        "name": "MCP Gateway Load Test",
+        "description": "1분 내 10회 이상 반복 호출을 위한 Postman 컬렉션 X-API-KEY 는 신규등록 후 테스트 진행",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Call MCP Tools List",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "X-API-KEY",
+                        "value": "mcp-key-1300b0f61d3e47348816e4793f997c09",
+                        "description": "",
+                        "disabled": false,
+                        "type": "default"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json",
+                        "description": "",
+                        "disabled": false,
+                        "type": "default"
+                    }
+                ],
+                "description": "",
+                "url": {
+                    "raw": "http://localhost:8080/mcp",
+                    "protocol": "http",
+                    "host": [
+                        "localhost:8080"
+                    ],
+                    "path": [
+                        "mcp"
+                    ],
+                    "query": [],
+                    "variable": []
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 1,\n    \"method\": \"tools/list\",\n    \"params\": {}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "variable": []
+}
