@@ -21,6 +21,7 @@ import org.springframework.security.web.server.util.matcher.ServerWebExchangeMat
 
 import com.mcp.gateway.repository.McpAdminUserRepository;
 import com.mcp.gateway.security.ApiKeyAuthenticationWebFilter;
+import com.mcp.gateway.service.ApiKeyPermissionService;
 
 /**
  * Spring Security Reactive Configuration.
@@ -34,10 +35,10 @@ import com.mcp.gateway.security.ApiKeyAuthenticationWebFilter;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
-    private final ApiKeyAuthenticationWebFilter apiKeyAuthenticationWebFilter;
+    private final ApiKeyPermissionService apiKeyPermissionService;
 
-    public SecurityConfig(ApiKeyAuthenticationWebFilter apiKeyAuthenticationWebFilter) {
-        this.apiKeyAuthenticationWebFilter = apiKeyAuthenticationWebFilter;
+    public SecurityConfig(ApiKeyPermissionService apiKeyPermissionService) {
+        this.apiKeyPermissionService = apiKeyPermissionService;
     }
 
     @Bean
@@ -93,7 +94,7 @@ public class SecurityConfig {
                         .pathMatchers("/", "/dashboard.html", "/favicon.ico", "/static/**").permitAll()
                         .anyExchange().authenticated()
                 )
-                .addFilterBefore(apiKeyAuthenticationWebFilter, SecurityWebFiltersOrder.AUTHENTICATION)
+                .addFilterBefore(new ApiKeyAuthenticationWebFilter(apiKeyPermissionService), SecurityWebFiltersOrder.AUTHENTICATION)
                 .build();
     }
 }

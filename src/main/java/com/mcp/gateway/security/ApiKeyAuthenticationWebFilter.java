@@ -1,7 +1,8 @@
 package com.mcp.gateway.security;
 
-import com.mcp.gateway.domain.McpApiKeyEntity;
-import com.mcp.gateway.service.ApiKeyPermissionService;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -10,19 +11,20 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
-import reactor.core.publisher.Mono;
 
-import java.nio.charset.StandardCharsets;
-import java.util.List;
+import com.mcp.gateway.service.ApiKeyPermissionService;
+
+import reactor.core.publisher.Mono;
 
 /**
  * WebFilter enforcing X-API-KEY authentication for MCP protocol gateway endpoints (/mcp).
+ * <p>
+ * Registered strictly inside Spring Security filter chain (SecurityWebFilterChain) to prevent duplicate execution.
+ * </p>
  */
-@Component
 public class ApiKeyAuthenticationWebFilter implements WebFilter {
 
     private static final Logger log = LoggerFactory.getLogger(ApiKeyAuthenticationWebFilter.class);

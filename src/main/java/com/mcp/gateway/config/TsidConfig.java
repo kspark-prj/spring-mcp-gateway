@@ -34,6 +34,9 @@ public class TsidConfig {
      * application.yml의 node-id가 반영된 Long형 TSID 생성
      */
     public static Long nextLong() {
+        if (tsidFactory == null) {
+            tsidFactory = TsidFactory.builder().withNode(0).build();
+        }
         return tsidFactory.create().toLong();
     }
 
@@ -41,6 +44,9 @@ public class TsidConfig {
      * application.yml의 node-id가 반영된 Tsid 객체 생성
      */
     public static Tsid nextTsid() {
+        if (tsidFactory == null) {
+            tsidFactory = TsidFactory.builder().withNode(0).build();
+        }
         return tsidFactory.create();
     }
 }
