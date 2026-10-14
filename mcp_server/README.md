@@ -25,9 +25,9 @@ npx -y @modelcontextprotocol/server-filesystem C:\Users\username\Downloads
 
 stdio 방식 테스트
 npx @modelcontextprotocol/inspector python fast_server_stdio.py
-# 서버장애 로그 분석용
-npx @modelcontextprotocol/inspector python log_mcp_server.py
 
+# 서버장애 로그 분석용 (./logs 폴더 생성 후  로그파일 복사이후  테스트)
+npx @modelcontextprotocol/inspector python log_mcp_server.py
 
 #이러면 내부에서 spring mcp gateway url로 X-API-KEY 헤더값을 전달하여 호출
 
