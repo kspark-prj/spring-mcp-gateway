@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aggregated Hybrid MCP Proxy Gateway System - 제안서</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header / Hero Section -->
+    <header class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white py-16 px-6 shadow-xl">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex flex-wrap gap-2 mb-4">
+                <span class="bg-indigo-600/80 text-indigo-100 text-xs font-semibold px-3 py-1 rounded-full">Java 21 Virtual Threads</span>
+                <span class="bg-emerald-600/80 text-emerald-100 text-xs font-semibold px-3 py-1 rounded-full">Spring Boot 3.3.4 WebFlux</span>
+                <span class="bg-blue-600/80 text-blue-100 text-xs font-semibold px-3 py-1 rounded-full">PostgreSQL 16 & R2DBC</span>
+                <span class="bg-purple-600/80 text-purple-100 text-xs font-semibold px-3 py-1 rounded-full">Caffeine Cache</span>
+            </div>
+            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-4">
+                Aggregated Hybrid MCP Proxy Gateway System
+            </h1>
+            <p class="text-lg md:text-xl text-slate-300 max-w-3xl leading-relaxed">
+                로컬(STDIO) 및 원격(HTTP) MCP 서버를 단일 Streamable HTTP(`/mcp`) 엔드포인트로 통합 관리하고, 
+                엔터프라이즈급 보안·안정성을 제공하는 고성능 하이브리드 프록시 게이트웨이 솔루션입니다.
+            </p>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-6xl mx-auto px-6 py-12 space-y-12">
+
+        <!-- 1. 프로젝트 배경 및 핵심 가치 -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+            <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <span class="text-indigo-600">📌</span> 1. 도입 배경 및 핵심 가치
+            </h2>
+            <p class="text-slate-600 mb-6 leading-relaxed">
+                LLM 에이전트 환경에서 다양한 외부 툴(Tool) 연동을 위해 Model Context Protocol(MCP)이 확산되고 있으나, 
+                프로토콜 파편화, 명칭 충돌, 보안 및 감사 로깅 부재의 한계가 존재합니다. 본 시스템은 이를 완벽히 해결합니다.
+            </p>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                    <div class="text-indigo-600 font-bold text-lg mb-2">단일 접점 통일</div>
+                    <p class="text-sm text-slate-600">오직 하나의 <code class="bg-slate-200 px-1 py-0.5 rounded text-indigo-700">/mcp</code> 엔드포인트를 통해 모든 로컬/원격 MCP 툴에 투명하게 접근합니다.</p>
+                </div>
+                <div class="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                    <div class="text-indigo-600 font-bold text-lg mb-2">네임스페이스 라우팅</div>
+                    <p class="text-sm text-slate-600"><code class="bg-slate-200 px-1 py-0.5 rounded text-indigo-700">{server}__{tool}</code> 규칙으로 서버 간 동일 툴 명칭 충돌을 원천 차단합니다.</p>
+                </div>
+                <div class="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                    <div class="text-indigo-600 font-bold text-lg mb-2">인프라 경량화 & 자가치유</div>
+                    <p class="text-sm text-slate-600">Redis 배제, Caffeine 로컬 캐시(Short TTL, Bounded Size) 적용으로 고성능 및 인프라 비용 최소화.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 기술적 아키텍처 및 핵심 기능 -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+            <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <span class="text-indigo-600">⚡</span> 2. 엔터프라이즈 핵심 기술 명세
+            </h2>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div class="flex items-start gap-3">
+                        <span class="bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-lg text-sm">01</span>
+                        <div>
+                            <h3 class="font-bold text-slate-900">Java 21 Virtual Threads I/O 격리</h3>
+                            <p class="text-sm text-slate-600 mt-1">STDIO 프로세스의 블로킹 I/O 작업을 전용 Virtual Thread로 완전히 격리하여 Reactor 이벤트 루프 보호.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-lg text-sm">02</span>
+                        <div>
+                            <h3 class="font-bold text-slate-900">Netty DataBuffer 파이프라인 (Zero-Leak)</h3>
+                            <p class="text-sm text-slate-600 mt-1">10MB 페이로드 조기 차단으로 DoS/OOM 방어 및 스트리밍 무지연 중계 보장.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-lg text-sm">03</span>
+                        <div>
+                            <h3 class="font-bold text-slate-900">지능형 Watchdog & 자가 재시작</h3>
+                            <p class="text-sm text-slate-600 mt-1">STDIO 비정상 크래시 감지 시 지수 백오프(Exponential Backoff) 기반 자동 재시작 수행.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex items-start gap-3">
+                        <span class="bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-lg text-sm">04</span>
+                        <div>
+                            <h3 class="font-bold text-slate-900">SSRF 원천 차단 & 보안 인증</h3>
+                            <p class="text-sm text-slate-600 mt-1">AWS/GCP 메타데이터 및 사설 IP 대역 접근 통제, SHA-256 API Key 핑거프린트 인증.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-lg text-sm">05</span>
+                        <div>
+                            <h3 class="font-bold text-slate-900">동적 PII 및 강제 비밀값 마스킹</h3>
+                            <p class="text-sm text-slate-600 mt-1">개인정보 동적 마스킹 외에도 인증 토큰·비밀값은 설정과 무관하게 전역 영구 마스킹 처리.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-lg text-sm">06</span>
+                        <div>
+                            <h3 class="font-bold text-slate-900">35초 Drain Timeout (Graceful Shutdown)</h3>
+                            <p class="text-sm text-slate-600 mt-1">배포/스케일인 시 LLM 에이전트의 인플라이트 툴 실행 요청을 안전하게 완수 후 종료.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. 윈도우 STDIO 서버 등록 실무 예제 -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+            <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <span class="text-indigo-600">🖥️</span> 3. 윈도우 환경 STDIO 통신 서버 등록 예제
+            </h2>
+            <p class="text-slate-600 mb-4 text-sm">
+                관리자 대시보드(<code class="bg-slate-100 text-indigo-600 px-1 py-0.5 rounded">/dashboard.html</code>) 또는 API를 통해 로컬 STDIO 서버를 등록할 때 아래와 같이 설정합니다. 
+                예를 들어 윈도우 파일시스템 서버를 연동하는 명령어 예시는 다음과 같습니다:
+            </p>
+            <div class="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-sm overflow-x-auto shadow-inner">
+                <div class="text-slate-400 mb-1"># Windows 환경 파일시스템 STDIO 업스트림 등록 예시 명령어</div>
+                <code>npx -y @modelcontextprotocol/server-filesystem C:\Users\username\Downloads</code>
+            </div>
+            <div class="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 flex items-start gap-3">
+                <span class="text-lg">💡</span>
+                <div>
+                    <strong>팁:</strong> 게이트웨이는 내부적으로 Virtual Thread 기반의 `ProcessBuilder`를 통해 해당 명령어를 구동하고, 
+                    표준 입출력(`stdin`/`stdout`)을 프록시하여 단일 <code class="bg-amber-100 px-1 rounded">/mcp</code> 엔드포인트로 통합 중계합니다.
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. 기본 계정 정보 요약 -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+            <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <span class="text-indigo-600">🔑</span> 4. 기본 인증 및 마스터 정보
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700">
+                            <th class="p-3 font-semibold rounded-l-lg">구분</th>
+                            <th class="p-3 font-semibold">식별자 / 아이디</th>
+                            <th class="p-3 font-semibold">초기 비밀번호 / 키 원문</th>
+                            <th class="p-3 font-semibold rounded-r-lg">보안 처리 방식</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-slate-600">
+                        <tr>
+                            <td class="p-3 font-medium text-slate-900">관리자 대시보드</td>
+                            <td class="p-3 font-mono">admin</td>
+                            <td class="p-3 font-mono text-indigo-600 font-bold">admin1</td>
+                            <td class="p-3">BCrypt 암호화 해시</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-medium text-slate-900">마스터 Gateway API Key</td>
+                            <td class="p-3 font-mono">Master Gateway Key</td>
+                            <td class="p-3 font-mono text-indigo-600 font-bold">mcp-gateway-master-key-2026</td>
+                            <td class="p-3">SHA-256 핑거프린트 보관</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-8 px-6 text-center text-sm mt-16">
+        <p>Aggregated Hybrid MCP Proxy Gateway System &copy; 2026. All rights reserved.</p>
+    </footer>
+
+</body>
+</html>
