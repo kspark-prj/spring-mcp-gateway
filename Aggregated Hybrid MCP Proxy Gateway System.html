@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aggregated Hybrid MCP Proxy Gateway System - 제안서</title>
+    <title>Aggregated Hybrid MCP Proxy Gateway System - 시스템 제안 및 대시보드 안내서</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css">
@@ -35,10 +35,197 @@
     <!-- Main Content Container -->
     <main class="max-w-6xl mx-auto px-6 py-12 space-y-12">
 
-        <!-- 1. 프로젝트 배경 및 핵심 가치 -->
+        <!-- 1. 관리자 통합 대시보드 미리보기 및 특징 설명 -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+            <h2 class="text-2xl font-bold text-slate-900 mb-2 flex items-center gap-2">
+                <span class="text-indigo-600">📊</span> 관리자 통합 대시보드 주요 특징 및 UI
+            </h2>
+            <p class="text-slate-600 mb-6 text-sm">
+                별도의 외부 이미지 없이 인라인 벡터(SVG/HTML) 방식으로 정교하게 재현된 대시보드 관리 화면입니다. 실시간 모니터링부터 세밀한 보안·도구 제어까지 지원합니다.
+            </p>
+
+            <!-- Dashboard Vector Visual Mockup -->
+            <div class="bg-[#0f172a] text-slate-200 rounded-xl p-6 shadow-2xl border border-slate-800 text-xs font-sans overflow-hidden mb-8">
+                
+                <!-- Dashboard Top Bar -->
+                <div class="flex justify-between items-center pb-4 mb-5 border-b border-slate-800/80">
+                    <div class="flex items-center gap-2 font-bold text-sm text-sky-400">
+                        <svg class="w-5 h-5 fill-amber-400" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        ⚡ 하이브리드 MCP 게이트웨이 통합 대시보드
+                    </div>
+                    <div class="flex items-center gap-3 text-slate-400">
+                        <span class="text-emerald-400 font-semibold">admin</span>
+                        <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded border border-slate-700">로그아웃</button>
+                    </div>
+                </div>
+
+                <!-- Metrics Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                    <div class="bg-[#1e293b] p-3.5 rounded-lg border border-slate-700/60">
+                        <div class="text-slate-400 text-[11px] font-medium uppercase mb-1">전체 게이트웨이 요청 수</div>
+                        <div class="text-2xl font-bold text-sky-400">10</div>
+                    </div>
+                    <div class="bg-[#1e293b] p-3.5 rounded-lg border border-slate-700/60">
+                        <div class="text-slate-400 text-[11px] font-medium uppercase mb-1">요청 성공률</div>
+                        <div class="text-2xl font-bold text-emerald-400">100%</div>
+                    </div>
+                    <div class="bg-[#1e293b] p-3.5 rounded-lg border border-slate-700/60">
+                        <div class="text-slate-400 text-[11px] font-medium uppercase mb-1">평균 응답 지연 시간</div>
+                        <div class="text-2xl font-bold text-sky-400">2 ms</div>
+                    </div>
+                    <div class="bg-[#1e293b] p-3.5 rounded-lg border border-slate-700/60">
+                        <div class="text-slate-400 text-[11px] font-medium uppercase mb-1">활성 업스트림 서버</div>
+                        <div class="text-2xl font-bold text-sky-400">2</div>
+                    </div>
+                    <div class="bg-[#1e293b] p-3.5 rounded-lg border border-slate-700/60 col-span-2 md:col-span-1">
+                        <div class="text-slate-400 text-[11px] font-medium uppercase mb-1">활성 도구 수 (IS_ENABLED)</div>
+                        <div class="text-2xl font-bold text-sky-400">17</div>
+                    </div>
+                </div>
+
+                <!-- PII Setting Bar -->
+                <div class="bg-[#1e293b] p-4 rounded-lg border border-slate-700/60 mb-6 flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-slate-200 text-sm">전역 시스템 보안 설정 — 동적 PII 마스킹 토글</div>
+                        <div class="text-slate-400 text-[11px] mt-0.5">감사 로그 내 이메일 및 전화번호를 마스킹합니다. 인증 비밀값은 설정과 무관하게 항상 강제 마스킹됩니다.</div>
+                    </div>
+                    <div class="w-10 h-5 bg-sky-500 rounded-full p-0.5 flex justify-end cursor-pointer">
+                        <div class="w-4 h-4 bg-white rounded-full shadow"></div>
+                    </div>
+                </div>
+
+                <!-- Upstream Server Table -->
+                <div class="bg-[#1e293b] p-4 rounded-lg border border-slate-700/60 mb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="font-bold text-slate-200 text-sm">업스트림 MCP 서버 관리</div>
+                        <div class="flex gap-2">
+                            <span class="bg-emerald-600 text-white text-[11px] px-2.5 py-1 rounded font-medium cursor-pointer">🔄 전체 도구 동기화</span>
+                            <span class="bg-sky-600 text-white text-[11px] px-2.5 py-1 rounded font-medium cursor-pointer">+ 서버 등록</span>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-slate-400 border-b border-slate-700/80 bg-[#172033]">
+                                    <th class="p-2 font-semibold">서버 이름</th>
+                                    <th class="p-2 font-semibold">전송 프로토콜</th>
+                                    <th class="p-2 font-semibold">엔드포인트 / 실행 명령</th>
+                                    <th class="p-2 font-semibold">상태</th>
+                                    <th class="p-2 font-semibold text-right">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/80 font-mono text-[11px]">
+                                <tr>
+                                    <td class="p-2 text-slate-200 font-sans font-bold">local_stdio</td>
+                                    <td class="p-2"><span class="bg-amber-400/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded text-[10px] font-sans font-bold">STDIO</span></td>
+                                    <td class="p-2 text-slate-300">npx -y @modelcontextprotocol/server-filesystem C:\Users\kspar\Downloads</td>
+                                    <td class="p-2"><span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded text-[10px] font-sans font-bold">HEALTHY</span></td>
+                                    <td class="p-2 text-right space-x-1 font-sans">
+                                        <button class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px]">🔄</button>
+                                        <button class="bg-slate-700 text-slate-200 px-2 py-0.5 rounded text-[10px]">수정</button>
+                                        <button class="bg-rose-600 text-white px-2 py-0.5 rounded text-[10px]">삭제</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="p-2 text-slate-200 font-sans font-bold">local_http</td>
+                                    <td class="p-2"><span class="bg-sky-400/20 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded text-[10px] font-sans font-bold">HTTP</span></td>
+                                    <td class="p-2 text-slate-300">http://localhost:8001/mcp</td>
+                                    <td class="p-2"><span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded text-[10px] font-sans font-bold">HEALTHY</span></td>
+                                    <td class="p-2 text-right space-x-1 font-sans">
+                                        <button class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px]">🔄</button>
+                                        <button class="bg-slate-700 text-slate-200 px-2 py-0.5 rounded text-[10px]">수정</button>
+                                        <button class="bg-rose-600 text-white px-2 py-0.5 rounded text-[10px]">삭제</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tool Registry Section -->
+                <div class="bg-[#1e293b] p-4 rounded-lg border border-slate-700/60">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <div class="font-bold text-slate-200 text-sm flex items-center gap-1.5">
+                            🔧 도구 레지스트리 관리 <span class="text-slate-400 font-normal text-[11px]">(is_enabled 토글 · 서버별 새로고침)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="bg-[#0f172a] text-slate-300 border border-slate-700 px-2 py-1 rounded text-[11px]">--- 전체 서버 ---</span>
+                            <span class="bg-[#0f172a] text-slate-300 border border-slate-700 px-2 py-1 rounded text-[11px]">--- 활성화 상태 전체 ---</span>
+                            <span class="bg-[#0f172a] text-slate-400 border border-slate-700 px-2 py-1 rounded text-[11px]">도구 이름 검색...</span>
+                            <span class="bg-slate-700 text-white px-2 py-1 rounded text-[11px] cursor-pointer">↻ 새로고침</span>
+                        </div>
+                    </div>
+                    <div class="space-y-1.5 font-mono text-[11px]">
+                        <div class="flex items-center justify-between p-2 bg-[#0f172a] rounded border border-slate-800">
+                            <div class="w-1/3 text-sky-300 font-bold truncate">local_stdio__read_media_file</div>
+                            <div class="w-1/2 text-slate-400 truncate font-sans">Read a file and return it as a base64-encoded content block with its MIME type...</div>
+                            <div class="flex items-center gap-2 font-sans">
+                                <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded text-[10px] font-bold">ON</span>
+                                <div class="w-8 h-4 bg-sky-500 rounded-full p-0.5 flex justify-end cursor-pointer"><div class="w-3 h-3 bg-white rounded-full shadow"></div></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between p-2 bg-[#0f172a] rounded border border-slate-800">
+                            <div class="w-1/3 text-sky-300 font-bold truncate">local_stdio__write_file</div>
+                            <div class="w-1/2 text-slate-400 truncate font-sans">Create a new file or completely overwrite an existing file with new content...</div>
+                            <div class="flex items-center gap-2 font-sans">
+                                <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded text-[10px] font-bold">ON</span>
+                                <div class="w-8 h-4 bg-sky-500 rounded-full p-0.5 flex justify-end cursor-pointer"><div class="w-3 h-3 bg-white rounded-full"></div></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between p-2 bg-[#0f172a] rounded border border-slate-800">
+                            <div class="w-1/3 text-sky-300 font-bold truncate">local_stdio__list_directory</div>
+                            <div class="w-1/2 text-slate-400 truncate font-sans">Get a detailed listing of all files and directories in a specified path...</div>
+                            <div class="flex items-center gap-2 font-sans">
+                                <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded text-[10px] font-bold">ON</span>
+                                <div class="w-8 h-4 bg-sky-500 rounded-full p-0.5 flex justify-end cursor-pointer"><div class="w-3 h-3 bg-white rounded-full"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 대시보드 4대 핵심 기능 카드 grid -->
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                    <h3 class="font-bold text-slate-900 text-base mb-2 flex items-center gap-2">
+                        <span class="text-indigo-600">📈</span> 1. 실시간 메트릭 & 서킷브레이커 상태
+                    </h3>
+                    <p class="text-sm text-slate-600 leading-relaxed">
+                        전체 게이트웨이 요청 수, 성공률, 평균 응답 지연시간(ms), 활성 서버 및 도구 수를 실시간으로 종합 집계합니다. 업스트림 서버별 헬스체크 및 서킷브레이커 동작 상태를 실시간으로 모니터링할 수 있습니다.
+                    </p>
+                </div>
+                <div class="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                    <h3 class="font-bold text-slate-900 text-base mb-2 flex items-center gap-2">
+                        <span class="text-indigo-600">🔒</span> 2. 전역 PII 마스킹 & 강제 비밀값 차단
+                    </h3>
+                    <p class="text-sm text-slate-600 leading-relaxed">
+                        원클릭 토글 스위치로 감사 로그 내 이메일, 전화번호 등 개인식별정보(PII) 마스킹을 즉시 켜고 끌 수 있습니다. JWT, API 키 등의 비밀값은 설정 여부와 상관없이 무조건 영구 마스킹 처리됩니다.
+                    </p>
+                </div>
+                <div class="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                    <h3 class="font-bold text-slate-900 text-base mb-2 flex items-center gap-2">
+                        <span class="text-indigo-600">🔌</span> 3. 동적 업스트림 관리 & 전체 도구 동기화
+                    </h3>
+                    <p class="text-sm text-slate-600 leading-relaxed">
+                        서버 재시작 없이 STDIO(명령어 실행) 및 Streamable HTTP 업스트림 서버를 동적으로 추가·수정·삭제합니다. <code class="bg-slate-200 text-indigo-700 px-1 py-0.5 rounded">🔄 전체 도구 동기화</code> 버튼으로 모든 연결된 툴 스키마를 즉각 캐시 및 DB에 반영합니다.
+                    </p>
+                </div>
+                <div class="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                    <h3 class="font-bold text-slate-900 text-base mb-2 flex items-center gap-2">
+                        <span class="text-indigo-600">🎛️</span> 4. 도구(Tool) 단위 개별 활성화 control (is_enabled)
+                    </h3>
+                    <p class="text-sm text-slate-600 leading-relaxed">
+                        서버별로 통합된 도구들을 네임스페이스(<code class="bg-slate-200 text-indigo-700 px-1 py-0.5 rounded">{server}__{tool}</code>) 단위로 정렬하고 검색할 수 있습니다. ON/OFF 토글 시 LLM의 탐색(<code class="bg-slate-200 text-indigo-700 px-1 py-0.5 rounded">tools/list</code>) 및 실행(<code class="bg-slate-200 text-indigo-700 px-1 py-0.5 rounded">tools/call</code>)이 실시간으로 통제됩니다.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 프로젝트 도입 배경 및 핵심 가치 -->
         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
             <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-                <span class="text-indigo-600">📌</span> 1. 도입 배경 및 핵심 가치
+                <span class="text-indigo-600">📌</span> 2. 도입 배경 및 핵심 가치
             </h2>
             <p class="text-slate-600 mb-6 leading-relaxed">
                 LLM 에이전트 환경에서 다양한 외부 툴(Tool) 연동을 위해 Model Context Protocol(MCP)이 확산되고 있으나, 
@@ -60,10 +247,10 @@
             </div>
         </section>
 
-        <!-- 2. 기술적 아키텍처 및 핵심 기능 -->
+        <!-- 3. 엔터프라이즈 핵심 기술 명세 -->
         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
             <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-                <span class="text-indigo-600">⚡</span> 2. 엔터프라이즈 핵심 기술 명세
+                <span class="text-indigo-600">⚡</span> 3. 엔터프라이즈 핵심 기술 명세
             </h2>
             <div class="grid md:grid-cols-2 gap-6">
                 <div class="space-y-4">
@@ -115,10 +302,10 @@
             </div>
         </section>
 
-        <!-- 3. 윈도우 STDIO 서버 등록 실무 예제 -->
+        <!-- 4. 윈도우 STDIO 서버 등록 실무 예제 -->
         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
             <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-                <span class="text-indigo-600">🖥️</span> 3. 윈도우 환경 STDIO 통신 서버 등록 예제
+                <span class="text-indigo-600">🖥️</span> 4. 윈도우 환경 STDIO 통신 서버 등록 예제
             </h2>
             <p class="text-slate-600 mb-4 text-sm">
                 관리자 대시보드(<code class="bg-slate-100 text-indigo-600 px-1 py-0.5 rounded">/dashboard.html</code>) 또는 API를 통해 로컬 STDIO 서버를 등록할 때 아래와 같이 설정합니다. 
@@ -137,10 +324,10 @@
             </div>
         </section>
 
-        <!-- 4. 기본 계정 정보 요약 -->
+        <!-- 5. 기본 계정 정보 요약 -->
         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
             <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-                <span class="text-indigo-600">🔑</span> 4. 기본 인증 및 마스터 정보
+                <span class="text-indigo-600">🔑</span> 5. 기본 인증 및 마스터 정보
             </h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse text-sm">
