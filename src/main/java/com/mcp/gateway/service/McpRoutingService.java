@@ -41,6 +41,7 @@ public class McpRoutingService {
     private final AuditLogService auditLogService;
     private final McpHttpSessionManager httpSessionManager;
     private final ObjectMapper objectMapper;
+    private final ApiKeyPermissionService apiKeyPermissionService;
 
     public McpRoutingService(ToolRegistryService toolRegistryService,
                              ResourceRegistryService resourceRegistryService,
@@ -52,7 +53,8 @@ public class McpRoutingService {
                              DynamicCircuitBreakerManager dynamicCircuitBreakerManager,
                              AuditLogService auditLogService,
                              McpHttpSessionManager httpSessionManager,
-                             ObjectMapper objectMapper) {
+                             ObjectMapper objectMapper,
+                             ApiKeyPermissionService apiKeyPermissionService) {
         this.toolRegistryService = toolRegistryService;
         this.resourceRegistryService = resourceRegistryService;
         this.resourceTemplateRegistryService = resourceTemplateRegistryService;
@@ -64,6 +66,7 @@ public class McpRoutingService {
         this.auditLogService = auditLogService;
         this.httpSessionManager = httpSessionManager;
         this.objectMapper = objectMapper;
+        this.apiKeyPermissionService = apiKeyPermissionService;
     }
 
     public Mono<JsonRpcResponse> routeRequest(JsonRpcRequest request, McpApiKeyEntity apiKey) {
@@ -107,7 +110,7 @@ public class McpRoutingService {
                 responseMono = handleResourcesList(request);
                 break;
             case "resources/read":
-                responseMono = handleResourcesRead(request);
+                responseMono = handleResourcesRead(request, apiKey);
                 break;
             case "resources/templates/list":
                 responseMono = handleResourcesTemplatesList(request);
@@ -116,7 +119,7 @@ public class McpRoutingService {
                 responseMono = handlePromptsList(request);
                 break;
             case "prompts/get":
-                responseMono = handlePromptsGet(request);
+                responseMono = handlePromptsGet(request, apiKey);
                 break;
             case "notifications/initialized":
             case "notifications/cancelled":
@@ -218,7 +221,7 @@ public class McpRoutingService {
     }
 
     @SuppressWarnings("unchecked")
-    private Mono<JsonRpcResponse> handleResourcesRead(JsonRpcRequest request) {
+    private Mono<JsonRpcResponse> handleResourcesRead(JsonRpcRequest request, McpApiKeyEntity apiKey) {
         Map<String, Object> params = request.getParams();
         if (params == null || !params.containsKey("uri")) {
             return Mono.just(JsonRpcResponse.error(request.getId(), JsonRpcError.INVALID_PARAMS, "Missing 'uri' in resources/read params"));
@@ -235,19 +238,25 @@ public class McpRoutingService {
 
         return serverRepository.findByName(serverName)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Target MCP Server not found: " + serverName)))
-                .flatMap(server -> {
-                    Map<String, Object> upstreamParams = new HashMap<>(params);
-                    upstreamParams.put("uri", originalUri);
+                .flatMap(server -> apiKeyPermissionService.hasServerAccess(apiKey, server.getId())
+                        .flatMap(allowed -> {
+                            if (!allowed) {
+                                return Mono.just(JsonRpcResponse.error(request.getId(), JsonRpcError.UNAUTHORIZED,
+                                        "API key is not authorized for server: " + serverName));
+                            }
 
-                    Map<String, Object> upstreamRequestMap = Map.of(
-                            "jsonrpc", "2.0",
-                            "id", request.getId() != null ? request.getId() : UUID.randomUUID().toString(),
-                            "method", "resources/read",
-                            "params", upstreamParams
-                    );
+                            Map<String, Object> upstreamParams = new HashMap<>(params);
+                            upstreamParams.put("uri", originalUri);
 
-                    return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap);
-                })
+                            Map<String, Object> upstreamRequestMap = Map.of(
+                                    "jsonrpc", "2.0",
+                                    "id", request.getId() != null ? request.getId() : UUID.randomUUID().toString(),
+                                    "method", "resources/read",
+                                    "params", upstreamParams
+                            );
+
+                            return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap);
+                        }))
                 .onErrorResume(ex -> {
                     log.error("Routing error for resource read [{}]: {}", namespacedUri, ex.getMessage(), ex);
                     return Mono.just(JsonRpcResponse.error(request.getId(), JsonRpcError.INTERNAL_ERROR, ex.getMessage()));
@@ -255,7 +264,7 @@ public class McpRoutingService {
     }
 
     @SuppressWarnings("unchecked")
-    private Mono<JsonRpcResponse> handlePromptsGet(JsonRpcRequest request) {
+    private Mono<JsonRpcResponse> handlePromptsGet(JsonRpcRequest request, McpApiKeyEntity apiKey) {
         Map<String, Object> params = request.getParams();
         if (params == null || !params.containsKey("name")) {
             return Mono.just(JsonRpcResponse.error(request.getId(), JsonRpcError.INVALID_PARAMS, "Missing 'name' in prompts/get params"));
@@ -272,19 +281,25 @@ public class McpRoutingService {
 
         return serverRepository.findByName(serverName)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Target MCP Server not found: " + serverName)))
-                .flatMap(server -> {
-                    Map<String, Object> upstreamParams = new HashMap<>(params);
-                    upstreamParams.put("name", originalPromptName);
+                .flatMap(server -> apiKeyPermissionService.hasServerAccess(apiKey, server.getId())
+                        .flatMap(allowed -> {
+                            if (!allowed) {
+                                return Mono.just(JsonRpcResponse.error(request.getId(), JsonRpcError.UNAUTHORIZED,
+                                        "API key is not authorized for server: " + serverName));
+                            }
 
-                    Map<String, Object> upstreamRequestMap = Map.of(
-                            "jsonrpc", "2.0",
-                            "id", request.getId() != null ? request.getId() : UUID.randomUUID().toString(),
-                            "method", "prompts/get",
-                            "params", upstreamParams
-                    );
+                            Map<String, Object> upstreamParams = new HashMap<>(params);
+                            upstreamParams.put("name", originalPromptName);
 
-                    return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap);
-                })
+                            Map<String, Object> upstreamRequestMap = Map.of(
+                                    "jsonrpc", "2.0",
+                                    "id", request.getId() != null ? request.getId() : UUID.randomUUID().toString(),
+                                    "method", "prompts/get",
+                                    "params", upstreamParams
+                            );
+
+                            return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap);
+                        }))
                 .onErrorResume(ex -> {
                     log.error("Routing error for prompt get [{}]: {}", namespacedPromptName, ex.getMessage(), ex);
                     return Mono.just(JsonRpcResponse.error(request.getId(), JsonRpcError.INTERNAL_ERROR, ex.getMessage()));
@@ -350,21 +365,31 @@ public class McpRoutingService {
                                     return Mono.just(err);
                                 }
 
-                                // 3. API Key 권한 검증 로직 제거됨 -> 바로 업스트림 디스패치로 진행
-                                Map<String, Object> upstreamParams = new HashMap<>(params != null ? params : Map.of());
-                                upstreamParams.put("name", originalToolName);
+                                // 3. API Key 권한 검증: allowed_tools_json 허용 목록에 있는 도구만 호출 가능
+                                return apiKeyPermissionService.isToolAllowed(apiKey, serverId, originalToolName)
+                                        .flatMap(allowed -> {
+                                            if (!allowed) {
+                                                JsonRpcResponse err = JsonRpcResponse.error(request.getId(), JsonRpcError.UNAUTHORIZED,
+                                                        "API key is not authorized to call tool: " + namespacedToolName);
+                                                recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, err, System.currentTimeMillis() - startTime);
+                                                return Mono.just(err);
+                                            }
 
-                                Map<String, Object> upstreamRequestMap = Map.of(
-                                        "jsonrpc", "2.0",
-                                        "id", request.getId() != null ? request.getId() : UUID.randomUUID().toString(),
-                                        "method", "tools/call",
-                                        "params", upstreamParams
-                                );
+                                            Map<String, Object> upstreamParams = new HashMap<>(params != null ? params : Map.of());
+                                            upstreamParams.put("name", originalToolName);
 
-                                return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap)
-                                        .doOnNext(response -> {
-                                            long executionTimeMs = System.currentTimeMillis() - startTime;
-                                            recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, response, executionTimeMs);
+                                            Map<String, Object> upstreamRequestMap = Map.of(
+                                                    "jsonrpc", "2.0",
+                                                    "id", request.getId() != null ? request.getId() : UUID.randomUUID().toString(),
+                                                    "method", "tools/call",
+                                                    "params", upstreamParams
+                                            );
+
+                                            return dispatchToUpstreamGeneric(request.getId(), server, upstreamRequestMap)
+                                                    .doOnNext(response -> {
+                                                        long executionTimeMs = System.currentTimeMillis() - startTime;
+                                                        recordAuditLog(requestIdStr, apiKeyId, serverId, extractToolOrResourceName(request), finalPayload, response, executionTimeMs);
+                                                    });
                                         });
                             });
                 })

@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -12,10 +13,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.mcp.gateway.domain.McpApiKeyEntity;
+import com.mcp.gateway.domain.McpKeyServerPermissionEntity;
 import com.mcp.gateway.repository.McpApiKeyRepository;
+import com.mcp.gateway.repository.McpKeyServerPermissionRepository;
 
 import reactor.core.publisher.Mono;
 
@@ -29,6 +33,7 @@ public class ApiKeyPermissionService {
     private static final Logger log = LoggerFactory.getLogger(ApiKeyPermissionService.class);
 
     private final McpApiKeyRepository apiKeyRepository;
+    private final McpKeyServerPermissionRepository keyServerPermissionRepository;
     private final Cache<String, McpApiKeyEntity> apiKeyCache;
     private final ObjectMapper objectMapper;
 
@@ -36,9 +41,11 @@ public class ApiKeyPermissionService {
     private final ConcurrentHashMap<Long, RateLimitCounter> rateLimitMap = new ConcurrentHashMap<>();
 
     public ApiKeyPermissionService(McpApiKeyRepository apiKeyRepository,
+                                 McpKeyServerPermissionRepository keyServerPermissionRepository,
                                  Cache<String, McpApiKeyEntity> apiKeyCache,
                                  ObjectMapper objectMapper) {
         this.apiKeyRepository = apiKeyRepository;
+        this.keyServerPermissionRepository = keyServerPermissionRepository;
         this.apiKeyCache = apiKeyCache;
         this.objectMapper = objectMapper;
     }
@@ -131,8 +138,59 @@ public class ApiKeyPermissionService {
         return counter.count.get() <= limit;
     }
 
+    /**
+     * Checks whether an API key is authorized to reach a given upstream server at all
+     * (resources/prompts are scoped per-server, not per-tool). Master keys bypass this.
+     *
+     * @param apiKey   authenticated API key entity
+     * @param serverId target upstream server id
+     * @return Mono emitting true if access is granted
+     */
+    public Mono<Boolean> hasServerAccess(McpApiKeyEntity apiKey, Long serverId) {
+        if (apiKey == null) {
+            return Mono.just(false);
+        }
+        if (Boolean.TRUE.equals(apiKey.getMasterKey())) {
+            return Mono.just(true);
+        }
+        return keyServerPermissionRepository.findByApiKeyIdAndServerId(apiKey.getId(), serverId)
+                .map(permission -> true)
+                .defaultIfEmpty(false);
+    }
 
+    /**
+     * Checks whether an API key is authorized to call a specific tool on a given upstream
+     * server, per the {@code allowed_tools_json} allow-list. Master keys bypass this.
+     *
+     * @param apiKey   authenticated API key entity
+     * @param serverId target upstream server id
+     * @param toolName original (non-namespaced) tool name being invoked
+     * @return Mono emitting true if the tool call is authorized
+     */
+    public Mono<Boolean> isToolAllowed(McpApiKeyEntity apiKey, Long serverId, String toolName) {
+        if (apiKey == null) {
+            return Mono.just(false);
+        }
+        if (Boolean.TRUE.equals(apiKey.getMasterKey())) {
+            return Mono.just(true);
+        }
+        return keyServerPermissionRepository.findByApiKeyIdAndServerId(apiKey.getId(), serverId)
+                .map(permission -> parseAllowedTools(permission).contains(toolName))
+                .defaultIfEmpty(false);
+    }
 
+    private List<String> parseAllowedTools(McpKeyServerPermissionEntity permission) {
+        String json = permission.getAllowedToolsJson();
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            log.warn("Failed to parse allowed_tools_json for permission [{}]: {}", permission.getId(), e.getMessage());
+            return List.of();
+        }
+    }
 
 
     private static class RateLimitCounter {
